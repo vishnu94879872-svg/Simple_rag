@@ -1,0 +1,60 @@
+# Environment & Secrets (NEVER COMMIT API KEYS)
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+
+# Testing & Linting
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Local Generated Data & Large Files
+data/chroma/
+data/bm25/
+data/parent_store/
+data/images/
+data/books/Class_*.pdf
+data/observability/traces/
+data/observability/eval_runs/
+data/observability/experiments/
+data/observability/investigations/
+data/observability/ingestion_jobs/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Operating System & IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

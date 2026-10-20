@@ -1,0 +1,229 @@
+import json
+
+items = [
+    {
+        "id": "bench_001",
+        "question": "What is a qubit?",
+        "expected_answer": "A qubit is defined as the fundamental unit of quantum information, analogous to the classical bit. Unlike classical bits which can only be 0 or 1, a qubit can exist in a superposition of both states.",
+        "expected_document": "sample_quantum.pdf",
+        "expected_pages": [1],
+        "expected_chunk_ids": ["chunk_0002_c_dfb979b4b1b4"],
+        "should_abstain": False,
+        "topic": "Qubit definition"
+    },
+    {
+        "id": "bench_002",
+        "question": "How is a qubit defined compared to a classical bit?",
+        "expected_answer": "Unlike classical bits which can only be 0 or 1, a qubit is the fundamental unit of quantum information and can exist in a superposition of both states.",
+        "expected_document": "sample_quantum.pdf",
+        "expected_pages": [1],
+        "expected_chunk_ids": ["chunk_0002_c_dfb979b4b1b4"],
+        "should_abstain": False,
+        "topic": "Qubit vs classical bit"
+    },
+    {
+        "id": "bench_003",
+        "question": "What is quantum superposition?",
+        "expected_answer": "Superposition allows a qubit to exist in both states simultaneously, allowing quantum algorithms to process exponentially large state spaces simultaneously.",
+        "expected_document": "sample_quantum.pdf",
+        "expected_pages": [1],
+        "expected_chunk_ids": ["chunk_0002_c_dfb979b4b1b4", "chunk_0004_c_d7b7fa77a86b"],
+        "should_abstain": False,
+        "topic": "Superposition concept"
+    },
+    {
+        "id": "bench_004",
+        "question": "What is quantum entanglement defined as?",
+        "expected_answer": "Quantum entanglement is defined as a physical phenomenon where pairs or groups of particles interact in ways such that the quantum state of each particle cannot be described independently.",
+        "expected_document": "sample_quantum.pdf",
+        "expected_pages": [1],
+        "expected_chunk_ids": ["chunk_0002_c_dfb979b4b1b4", "chunk_0004_c_d7b7fa77a86b"],
+        "should_abstain": False,
+        "topic": "Entanglement definition"
+    },
+    {
+        "id": "bench_005",
+        "question": "Can you show Python code for a Hadamard gate and superposition state?",
+        "expected_answer": "import numpy as np\ndef hadamard_gate():\n    return (1 / np.sqrt(2)) * np.array([[1, 1], [1, -1]])\nstate = hadamard_gate() @ np.array([1, 0])\nprint('Superposition state:', state)",
+        "expected_document": "sample_quantum.pdf",
+        "expected_pages": [1],
+        "expected_chunk_ids": ["chunk_0003_code_0e0828ea2280"],
+        "should_abstain": False,
+        "topic": "Hadamard gate code"
+    },
+    {
+        "id": "bench_006",
+        "question": "What does state superposition allow according to Section 1.1?",
+        "expected_answer": "State Superposition allows concurrent exploration of solutions.",
+        "expected_document": "sample_quantum.pdf",
+        "expected_pages": [1],
+        "expected_chunk_ids": ["chunk_0004_c_d7b7fa77a86b"],
+        "should_abstain": False,
+        "topic": "Superposition properties"
+    },
+    {
+        "id": "bench_007",
+        "question": "What are the key properties of quantum bits?",
+        "expected_answer": "Key Properties of Quantum Bits are: State Superposition allows concurrent exploration of solutions; Quantum Entanglement links qubits regardless of physical distance; Quantum Interference amplifies correct probability amplitudes.",
+        "expected_document": "sample_quantum.pdf",
+        "expected_pages": [1],
+        "expected_chunk_ids": ["chunk_0004_c_d7b7fa77a86b"],
+        "should_abstain": False,
+        "topic": "Key Qubit properties"
+    },
+    {
+        "id": "bench_008",
+        "question": "How does quantum interference work for probability amplitudes?",
+        "expected_answer": "Quantum Interference amplifies correct probability amplitudes.",
+        "expected_document": "sample_quantum.pdf",
+        "expected_pages": [1],
+        "expected_chunk_ids": ["chunk_0004_c_d7b7fa77a86b"],
+        "should_abstain": False,
+        "topic": "Quantum interference"
+    },
+    {
+        "id": "bench_009",
+        "question": "What numpy function is used to calculate the square root in hadamard_gate?",
+        "expected_answer": "np.sqrt(2) is used to compute the normalization constant (1 / np.sqrt(2)).",
+        "expected_document": "sample_quantum.pdf",
+        "expected_pages": [1],
+        "expected_chunk_ids": ["chunk_0003_code_0e0828ea2280"],
+        "should_abstain": False,
+        "topic": "Numpy sqrt usage"
+    },
+    {
+        "id": "bench_010",
+        "question": "What is the matrix representation returned by hadamard_gate in the sample code?",
+        "expected_answer": "(1 / np.sqrt(2)) * np.array([[1, 1], [1, -1]])",
+        "expected_document": "sample_quantum.pdf",
+        "expected_pages": [1],
+        "expected_chunk_ids": ["chunk_0003_code_0e0828ea2280"],
+        "should_abstain": False,
+        "topic": "Hadamard matrix"
+    },
+    {
+        "id": "bench_011",
+        "question": "What are the classical and quantum complexities of Shor's Algorithm?",
+        "expected_answer": "For Shor's Algorithm, the classical complexity is Exp(O(n^(1/3))) and the quantum complexity is Polynomial O(n^3).",
+        "expected_document": "sample_quantum.pdf",
+        "expected_pages": [2],
+        "expected_chunk_ids": ["chunk_0006_tab_8c2a04b5e47f"],
+        "should_abstain": False,
+        "topic": "Shor algorithm complexity"
+    },
+    {
+        "id": "bench_012",
+        "question": "What is Grover's Search quantum complexity?",
+        "expected_answer": "Grover's Search has a quantum complexity of O(sqrt(N)) compared to classical complexity O(N).",
+        "expected_document": "sample_quantum.pdf",
+        "expected_pages": [2],
+        "expected_chunk_ids": ["chunk_0006_tab_8c2a04b5e47f"],
+        "should_abstain": False,
+        "topic": "Grover search complexity"
+    },
+    {
+        "id": "bench_013",
+        "question": "What is the quantum complexity of Deutsch-Jozsa algorithm?",
+        "expected_answer": "The quantum complexity of Deutsch-Jozsa is O(1) compared to classical complexity O(2^(n-1)).",
+        "expected_document": "sample_quantum.pdf",
+        "expected_pages": [2],
+        "expected_chunk_ids": ["chunk_0006_tab_8c2a04b5e47f"],
+        "should_abstain": False,
+        "topic": "Deutsch-Jozsa quantum complexity"
+    },
+    {
+        "id": "bench_014",
+        "question": "Compare classical complexity O(N) with quantum complexity O(sqrt(N)) for search.",
+        "expected_answer": "In Grover's Search, classical search takes O(N) operations while quantum search achieves quadratic speedup at O(sqrt(N)).",
+        "expected_document": "sample_quantum.pdf",
+        "expected_pages": [2],
+        "expected_chunk_ids": ["chunk_0006_tab_8c2a04b5e47f"],
+        "should_abstain": False,
+        "topic": "Search complexity comparison"
+    },
+    {
+        "id": "bench_015",
+        "question": "What is Deutsch-Jozsa classical complexity compared to quantum complexity?",
+        "expected_answer": "Deutsch-Jozsa classical complexity is exponential O(2^(n-1)) while quantum complexity is constant O(1).",
+        "expected_document": "sample_quantum.pdf",
+        "expected_pages": [2],
+        "expected_chunk_ids": ["chunk_0006_tab_8c2a04b5e47f"],
+        "should_abstain": False,
+        "topic": "Deutsch-Jozsa complexity"
+    },
+    {
+        "id": "bench_016",
+        "question": "Show the table comparing quantum vs classical algorithm complexity.",
+        "expected_answer": "Shor's Algorithm: Exp(O(n^(1/3))) vs O(n^3); Grover's Search: O(N) vs O(sqrt(N)); Deutsch-Jozsa: O(2^(n-1)) vs O(1).",
+        "expected_document": "sample_quantum.pdf",
+        "expected_pages": [2],
+        "expected_chunk_ids": ["chunk_0006_tab_8c2a04b5e47f"],
+        "should_abstain": False,
+        "topic": "Complexity table"
+    },
+    {
+        "id": "bench_017",
+        "question": "How does Shor's algorithm challenge modern RSA cryptographic infrastructure?",
+        "expected_answer": "Shor's algorithm poses a direct challenge to modern RSA cryptographic infrastructure due to its polynomial quantum complexity.",
+        "expected_document": "sample_quantum.pdf",
+        "expected_pages": [2],
+        "expected_chunk_ids": ["chunk_0007_c_eb8ae11b064d"],
+        "should_abstain": False,
+        "topic": "RSA cryptography threat"
+    },
+    {
+        "id": "bench_018",
+        "question": "What is the classical complexity of Deutsch-Jozsa?",
+        "expected_answer": "The classical complexity of Deutsch-Jozsa is O(2^(n-1)).",
+        "expected_document": "sample_quantum.pdf",
+        "expected_pages": [2],
+        "expected_chunk_ids": ["chunk_0006_tab_8c2a04b5e47f"],
+        "should_abstain": False,
+        "topic": "Deutsch-Jozsa classical"
+    },
+    {
+        "id": "bench_019",
+        "question": "What quantum algorithms deliver quadratic to exponential speedups?",
+        "expected_answer": "As demonstrated in Section 2.1, quantum algorithms deliver quadratic to exponential speedups.",
+        "expected_document": "sample_quantum.pdf",
+        "expected_pages": [2],
+        "expected_chunk_ids": ["chunk_0007_c_eb8ae11b064d"],
+        "should_abstain": False,
+        "topic": "Algorithm speedups"
+    },
+    {
+        "id": "bench_020",
+        "question": "What performance comparison table is in Section 2.1?",
+        "expected_answer": "Section 2.1 contains a comparison table demonstrating that quantum algorithms deliver quadratic to exponential speedups.",
+        "expected_document": "sample_quantum.pdf",
+        "expected_pages": [2],
+        "expected_chunk_ids": ["chunk_0006_tab_8c2a04b5e47f", "chunk_0007_c_eb8ae11b064d"],
+        "should_abstain": False,
+        "topic": "Section 2.1 table"
+    },
+    {
+        "id": "bench_021",
+        "question": "What is the capital city of Australia according to the quantum book?",
+        "expected_answer": "I cannot answer this question based on the provided book as it contains no information regarding the capital city of Australia.",
+        "expected_document": "sample_quantum.pdf",
+        "expected_pages": [],
+        "expected_chunk_ids": [],
+        "should_abstain": True,
+        "topic": "Out-of-Domain Abstention"
+    },
+    {
+        "id": "bench_022",
+        "question": "How do black holes evaporate via Hawking radiation?",
+        "expected_answer": "I do not have sufficient information in the provided document to explain Hawking radiation or black hole evaporation.",
+        "expected_document": "sample_quantum.pdf",
+        "expected_pages": [],
+        "expected_chunk_ids": [],
+        "should_abstain": True,
+        "topic": "Unindexed Physics Topic"
+    }
+]
+
+with open("data/observability/benchmarks/quantum_bench.json", "w", encoding="utf-8") as f:
+    json.dump(items, f, indent=2)
+
+print(f"Successfully wrote {len(items)} items to quantum_bench.json")
