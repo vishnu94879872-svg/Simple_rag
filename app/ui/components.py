@@ -160,6 +160,10 @@ def sidebar_status(status: Dict[str, Any], vector_count: int, bm25_count: int, m
             <span class="br-status-key">Model</span>
             <span class="br-status-val">{escape(model)}</span>
           </div>
+          <div class="br-status-foot">
+            <span>Backend</span>
+            <span>{escape(str(status.get("backend", "local")))} · v3.0</span>
+          </div>
         </div>
         """,
         unsafe_allow_html=True,

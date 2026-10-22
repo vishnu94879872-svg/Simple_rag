@@ -153,54 +153,50 @@ def render_overview(pipeline):
     elif status_filter == "0 hits":
         filtered_traces = [t for t in filtered_traces if len(t.retrieved_chunk_ids) == 0]
 
-    col_left, col_right = st.columns([1, 1])
-
-    with col_left:
-        st.markdown("### Recent pipeline traces")
-        if not filtered_traces:
-            empty_state(
-                "No traces match these filters",
-                "Ask a question in Book Tutor, or clear the status filter, to populate the execution log.",
-                mark="⌁",
+    st.markdown("### Recent pipeline traces")
+    if not filtered_traces:
+        empty_state(
+            "No traces match these filters",
+            "Ask a question in Book Tutor, or clear the status filter, to populate the execution log.",
+            mark="⌁",
+        )
+    else:
+        trace_table_data = []
+        for t in filtered_traces[:15]:
+            trace_table_data.append(
+                {
+                    "Trace ID": t.trace_id,
+                    "Query": t.query[:45] + ("..." if len(t.query) > 45 else ""),
+                    "Strategy": t.strategy,
+                    "Chunks": len(t.retrieved_chunk_ids),
+                    "Latency (ms)": f"{t.total_duration_ms:.0f}",
+                    "Status": t.status.upper(),
+                }
             )
-        else:
-            trace_table_data = []
-            for t in filtered_traces[:15]:
-                trace_table_data.append(
-                    {
-                        "Trace ID": t.trace_id,
-                        "Query": t.query[:45] + ("..." if len(t.query) > 45 else ""),
-                        "Strategy": t.strategy,
-                        "Chunks": len(t.retrieved_chunk_ids),
-                        "Latency (ms)": f"{t.total_duration_ms:.0f}",
-                        "Status": t.status.upper(),
-                    }
-                )
-            st.dataframe(trace_table_data, width="stretch", hide_index=True)
+        st.dataframe(trace_table_data, width="stretch", hide_index=True)
 
-    with col_right:
-        st.markdown("### Benchmark evaluation history")
-        if not eval_runs:
-            empty_state(
-                "No evaluation runs yet",
-                "Open Evaluation Lab to score Recall@k, MRR, groundedness, and citation accuracy on the bundled benchmark.",
-                mark="◫",
+    st.markdown("### Benchmark evaluation history")
+    if not eval_runs:
+        empty_state(
+            "No evaluation runs yet",
+            "Open Evaluation Lab to score Recall@k, MRR, groundedness, and citation accuracy on the bundled benchmark.",
+            mark="◫",
+        )
+    else:
+        visible_runs = [r for r in eval_runs if eval_run_filter == "All Runs" or r.run_id == eval_run_filter]
+        eval_table_data = []
+        for r in visible_runs[:15]:
+            eval_table_data.append(
+                {
+                    "Run ID": r.run_id,
+                    "Benchmark": r.benchmark_name,
+                    "Recall@k": f"{r.recall_at_k:.1f}%",
+                    "MRR": f"{r.mrr:.3f}",
+                    "Citation Acc": f"{r.citation_accuracy:.1f}%",
+                    "Avg Latency": f"{r.avg_latency_ms:.0f} ms",
+                }
             )
-        else:
-            visible_runs = [r for r in eval_runs if eval_run_filter == "All Runs" or r.run_id == eval_run_filter]
-            eval_table_data = []
-            for r in visible_runs[:15]:
-                eval_table_data.append(
-                    {
-                        "Run ID": r.run_id,
-                        "Benchmark": r.benchmark_name,
-                        "Recall@k": f"{r.recall_at_k:.1f}%",
-                        "MRR": f"{r.mrr:.3f}",
-                        "Citation Acc": f"{r.citation_accuracy:.1f}%",
-                        "Avg Latency": f"{r.avg_latency_ms:.0f} ms",
-                    }
-                )
-            st.dataframe(eval_table_data, width="stretch", hide_index=True)
+        st.dataframe(eval_table_data, width="stretch", hide_index=True)
 
     # --- Ingestion Jobs ---
     st.divider()

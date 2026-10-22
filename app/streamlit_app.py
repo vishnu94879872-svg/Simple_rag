@@ -86,7 +86,6 @@ with st.sidebar:
         bm25_count=pipeline.retrieval_engine.bm25_store.count(),
         model=settings.llm_model,
     )
-    st.caption(f"Backend `{storage.backend_name}` · v3.0")
     st.markdown(
         '<div style="font-family:var(--br-mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--br-text-dim);margin-top:8px;">'
         "Ingest → Retrieve → Rerank → Audit"

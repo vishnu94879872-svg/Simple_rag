@@ -50,7 +50,11 @@ def render_retrieval_playground():
                 key="single_type"
             )
 
-        if st.button("Execute retrieval", key="btn_run_single", type="primary"):
+        _, c_run = st.columns([2, 1])
+        with c_run:
+            run_single = st.button("Execute retrieval", key="btn_run_single", type="primary", width="stretch")
+
+        if run_single:
             filters = {"type": content_type} if content_type != "All" else None
 
             with st.spinner("Executing retrieval strategy..."):
@@ -115,7 +119,11 @@ def render_retrieval_playground():
 
         cmp_top_k = st.selectbox("Top-k for Comparison:", options=[3, 5, 10], index=1, key="cmp_topk")
 
-        if st.button("Compare strategies", type="primary"):
+        _, c_compare = st.columns([2, 1])
+        with c_compare:
+            run_compare = st.button("Compare strategies", type="primary", width="stretch")
+
+        if run_compare:
             with st.spinner("Benchmarking both retrieval strategies..."):
                 comparison = retrieval_debugger.compare_strategies(
                     query=query,

@@ -97,7 +97,7 @@ def render_root_cause_assistant():
             if exp_p > 0:
                 expected_evidence = {"expected_pages": [exp_p]}
 
-        col_run_inv, _ = st.columns([1, 2])
+        _, col_run_inv = st.columns([2, 1])
         with col_run_inv:
             start_inv = st.button("Run failure investigation", key="btn_start_inv", type="primary", width="stretch")
 
@@ -166,7 +166,11 @@ def render_root_cause_assistant():
         sim_has_chunks = st.checkbox("Simulate chunks were retrieved", value=True)
         sim_exp_page = st.number_input("Expected Page:", value=2)
 
-        if st.button("Run Simulation Diagnosis"):
+        _, col_run_sim = st.columns([2, 1])
+        with col_run_sim:
+            run_sim = st.button("Run Simulation Diagnosis", key="btn_run_sim", type="primary", width="stretch")
+
+        if run_sim:
             mock_chunks = [{"chunk_id": "c1", "content": "Text", "metadata": {"page": 1, "chapter": "Chapter 1"}}] if sim_has_chunks else []
             audit = citation_verifier.audit_response(sim_query, sim_answer, mock_chunks)
             diag = failure_classifier.diagnose(

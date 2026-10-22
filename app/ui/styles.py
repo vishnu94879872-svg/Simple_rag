@@ -74,6 +74,15 @@ html, body, [class*="css"], .stApp, .stApp * {
   padding: 2.1rem 3rem 4.5rem;
 }
 
+/* Bottom-docked chat input uses a wider default gutter; keep it on the same
+   content edges as the page container. */
+[data-testid="stBottomBlockContainer"] {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding-left: 3rem;
+  padding-right: 3rem;
+}
+
 /* ---------------------------------------------------------------- sidebar */
 section[data-testid="stSidebar"] {
   background: linear-gradient(180deg, #0a0c11 0%, #08090c 100%);
@@ -239,6 +248,28 @@ section[data-testid="stSidebar"] div[role="radiogroup"] label > div {
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 150px;
+}
+
+.br-status-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--br-border);
+  font-family: var(--br-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--br-text-dim);
+}
+
+.br-status-foot span:last-child {
+  font-size: 10.5px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--br-text-muted);
 }
 
 .br-dot {
@@ -674,7 +705,7 @@ section[data-testid="stSidebar"] div[role="radiogroup"] label > div {
   border: 1px solid var(--br-border);
   border-radius: var(--br-radius);
   padding: 15px 17px 13px;
-  min-height: 102px;
+  min-height: 113px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
   transition: border-color 0.2s var(--br-ease), transform 0.2s var(--br-ease);
 }
