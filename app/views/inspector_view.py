@@ -80,15 +80,18 @@ def render_chunk_inspector():
 
     # --- LEFT PANEL: Original PDF View ---
     with left_panel:
-        st.markdown(f"### Original PDF · page {selected_page_num} of {total_pages}")
-        try:
-            # Render page to high-res image
-            pix = page.get_pixmap(dpi=130)
-            img_bytes = pix.tobytes("png")
-            st.image(img_bytes, caption=f"{selected_pdf_name} (Page {selected_page_num})", width="stretch")
-        except Exception as e:
-            st.error(f"Could not render PDF raster: {e}")
-            st.text_area("Raw Text Fallback", value=page.get_text(), height=450)
+        # Sticky so the source page stays beside the diagnostics while the
+        # chunk list scrolls past it.
+        with st.container(key="chunk_pdf_preview"):
+            st.markdown(f"### Original PDF · page {selected_page_num} of {total_pages}")
+            try:
+                # Render page to high-res image
+                pix = page.get_pixmap(dpi=130)
+                img_bytes = pix.tobytes("png")
+                st.image(img_bytes, caption=f"{selected_pdf_name} (Page {selected_page_num})", width="stretch")
+            except Exception as e:
+                st.error(f"Could not render PDF raster: {e}")
+                st.text_area("Raw Text Fallback", value=page.get_text(), height=450)
 
     # --- RIGHT PANEL: Extracted Text & Chunks ---
     with right_panel:

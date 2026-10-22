@@ -699,6 +699,33 @@ section[data-testid="stSidebar"] div[role="radiogroup"] label > div {
   color: var(--br-text-dim);
 }
 
+/* The PDF pane stays pinned beside the chunk diagnostics as they scroll.
+   Streamlit sizes the element wrapper to its content, which would leave a
+   sticky element no room to travel; stretch the wrapper to the full column
+   height and keep the pane itself at its natural height. */
+main.stMain [data-testid="stLayoutWrapper"]:has(> .st-key-chunk_pdf_preview) {
+  height: 100%;
+}
+
+.st-key-chunk_pdf_preview {
+  position: sticky;
+  top: 0.85rem;
+  flex: 0 0 auto;
+}
+
+.st-key-chunk_pdf_preview [data-testid="stImage"] {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.st-key-chunk_pdf_preview [data-testid="stImage"] img {
+  width: auto !important;
+  max-width: 100%;
+  max-height: calc(100vh - 9.5rem);
+  object-fit: contain;
+}
+
 /* --------------------------------------------------------------- metrics */
 [data-testid="stMetric"] {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 45%), var(--br-surface);
