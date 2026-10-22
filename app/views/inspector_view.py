@@ -10,37 +10,45 @@ from ingest.pdf_parser import PDFParser
 from ingest.text_splitter import ChunkBuilder
 from observability.chunk_inspector import ChunkQualityChecker
 from ingest.models import Chunk, ContentType
+from app.ui import empty_state, escape, page_header, pill
 
 
 def render_chunk_inspector():
     """Render Module C - PDF and Chunk Inspector."""
-    st.markdown("## 🔍 PDF & Chunk Inspector")
-    st.caption("Side-by-side verification comparing original document pages with extracted text, generated chunks, and quality heuristics.")
+    page_header(
+        "Module · Inspection",
+        "PDF & Chunk Inspector",
+        "Compare original document pages with extracted text, generated chunks, and heuristic quality findings side by side.",
+    )
 
     book_files = list(Path(settings.data_dir / "books").glob("*.pdf")) if (settings.data_dir / "books").exists() else []
     if not book_files:
-        st.warning("No PDF books found in `data/books/`. Ingest a book first to inspect its pages and chunks.")
+        empty_state(
+            "No PDF books found",
+            "Add a PDF to data/books/ or ingest one from the Ingestion Monitor, then return to inspect its pages and chunks.",
+            mark="▤",
+        )
         return
 
     # Select document
-    col_sel, col_thresh = st.columns([2, 1])
+    col_sel, col_thresh = st.columns([3, 1], gap="medium", vertical_alignment="bottom")
     with col_sel:
-        selected_pdf_name = st.selectbox("Select Document to Inspect:", options=[b.name for b in book_files], index=0)
+        selected_pdf_name = st.selectbox("Document to inspect", options=[b.name for b in book_files], index=0, width="stretch")
         pdf_path = settings.data_dir / "books" / selected_pdf_name
 
     with col_thresh:
-        with st.popover("⚙️ Quality Thresholds"):
-            min_chars = st.slider("Min Chunk Characters", min_value=20, max_value=200, value=80, step=10)
-            max_chars = st.slider("Max Chunk Characters", min_value=500, max_value=2500, value=1200, step=50)
-            max_overlap = st.slider("Max Overlap Threshold", min_value=0.1, max_value=0.8, value=0.40, step=0.05)
-            st.caption("Diagnostic heuristics only. Changing thresholds does NOT alter stored vectors.")
+        with st.popover("Quality thresholds", width="stretch"):
+            min_chars = st.slider("Min chunk characters", min_value=20, max_value=200, value=80, step=10)
+            max_chars = st.slider("Max chunk characters", min_value=500, max_value=2500, value=1200, step=50)
+            max_overlap = st.slider("Max overlap threshold", min_value=0.1, max_value=0.8, value=0.40, step=0.05)
+            st.caption("Diagnostic heuristics only. Changing thresholds does not alter stored vectors.")
 
     # Open PDF
     doc = pymupdf.open(str(pdf_path))
     total_pages = len(doc)
 
     # Page selector
-    selected_page_num = st.slider("Select Document Page:", min_value=1, max_value=total_pages, value=1, step=1)
+    selected_page_num = st.slider("Document page", min_value=1, max_value=total_pages, value=1, step=1)
     page_idx = selected_page_num - 1
     page = doc[page_idx]
 
@@ -72,36 +80,35 @@ def render_chunk_inspector():
 
     # --- LEFT PANEL: Original PDF View ---
     with left_panel:
-        st.markdown(f"### 📄 Original PDF — Page {selected_page_num} of {total_pages}")
+        st.markdown(f"### Original PDF · page {selected_page_num} of {total_pages}")
         try:
             # Render page to high-res image
             pix = page.get_pixmap(dpi=130)
             img_bytes = pix.tobytes("png")
-            st.image(img_bytes, caption=f"{selected_pdf_name} (Page {selected_page_num})", use_container_width=True)
+            st.image(img_bytes, caption=f"{selected_pdf_name} (Page {selected_page_num})", width="stretch")
         except Exception as e:
             st.error(f"Could not render PDF raster: {e}")
             st.text_area("Raw Text Fallback", value=page.get_text(), height=450)
 
     # --- RIGHT PANEL: Extracted Text & Chunks ---
     with right_panel:
-        st.markdown(f"### 🧬 Extracted Text & Chunk Diagnostics")
+        st.markdown("### Extracted text & chunk diagnostics")
 
         # Tab view: Page text vs Chunks
-        tab_chunks, tab_raw_text = st.tabs([f"📦 Chunks ({len(page_chunks)})", "📝 Extracted Page Text"])
+        tab_chunks, tab_raw_text = st.tabs([f"Chunks ({len(page_chunks)})", "Extracted page text"])
 
         with tab_raw_text:
             extracted_raw = page.get_text()
-            st.caption(f"Raw character length: {len(extracted_raw)} | Word count: {len(extracted_raw.split())}")
-            # Text area with wrap to avoid horizontal overflow
+            st.caption(f"Raw character length: {len(extracted_raw):,} · word count: {len(extracted_raw.split()):,}")
             st.text_area(
-                "Extracted Text (Wrapped)",
+                "Extracted text (wrapped)",
                 value=extracted_raw,
                 height=450,
-                help="Fixed horizontal overflow with automatic word wrapping"
+                help="Text is wrapped to prevent horizontal overflow.",
             )
 
         # Top Diagnostics & Config Banner
-        with st.expander("⚙️ Document Ingestion & Chunking Configuration", expanded=False):
+        with st.expander("Document ingestion & chunking configuration", expanded=False):
             c_cfg1, c_cfg2, c_cfg3 = st.columns(3)
             with c_cfg1:
                 st.markdown("**Chunking Strategy:** `RecursiveHeadingAware`")
@@ -114,8 +121,8 @@ def render_chunk_inspector():
                 st.markdown(f"**Total Chunks in Book:** `{len(all_chunks)}`")
 
         # Quick Retrieval Rank Checker for this page's chunks
-        with st.expander("🔍 Test Query Retrieval Rank on this Page", expanded=False):
-            rank_query = st.text_input("Enter Query to Score:", value="quantum superposition", key=f"rank_q_{selected_page_num}")
+        with st.expander("Test query retrieval rank on this page", expanded=False):
+            rank_query = st.text_input("Query to score", value="quantum superposition", key=f"rank_q_{selected_page_num}")
             if rank_query.strip():
                 from retrieval.bm25_store import tokenize
                 q_tokens = set(tokenize(rank_query))
@@ -123,7 +130,11 @@ def render_chunk_inspector():
 
         with tab_chunks:
             if not page_chunks:
-                st.info(f"No discrete text chunks generated for page {selected_page_num}. Page may contain exclusively images or blank margins.")
+                empty_state(
+                    "No chunks on this page",
+                    "This page may contain only images or blank margins. Try another page or inspect the extracted text tab.",
+                    mark="—",
+                )
             else:
                 chunk_index_map = {c.chunk_id: i for i, c in enumerate(all_chunks)}
 
@@ -135,83 +146,96 @@ def render_chunk_inspector():
                     next_chunk = all_chunks[global_idx + 1] if global_idx < len(all_chunks) - 1 else None
 
                     # Calculate query token match score if query entered
-                    term_match_score = ""
-                    if 'rank_query' in locals() and rank_query.strip():
+                    match_block = ""
+                    if "rank_query" in locals() and rank_query.strip():
                         c_toks = set(tokenize(c.content))
                         matched_toks = q_tokens.intersection(c_toks)
                         if matched_toks:
-                            term_match_score = f" | 🎯 <b>Query Match:</b> {len(matched_toks)}/{len(q_tokens)} terms ({', '.join(matched_toks)})"
-
-                    # Card container
-                    with st.container():
-                        st.markdown(
-                            f'<div class="chunk-card" style="word-break: break-word; overflow-x: auto;">'
-                            f'<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">'
-                            f'<span style="font-weight: 700; color: #60a5fa; font-family: monospace;">Chunk #{idx}: {c.chunk_id}</span>'
-                            f'<span style="background-color: #27272a; color: #94a3b8; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem;">Doc: {selected_pdf_name} | Type: {meta.type}</span>'
-                            f'</div>'
-                            f'<div style="color: #94a3b8; font-size: 0.82rem; margin-bottom: 8px;">'
-                            f'<b>Page:</b> {meta.page} | <b>Section:</b> {meta.heading_path} | <b>Tokens:</b> ~{rep.token_count_estimate if rep else "?"} | <b>Chars:</b> {len(c.content)}{term_match_score}'
-                            f'</div>'
-                            f'</div>',
-                            unsafe_allow_html=True
-                        )
-
-                        # Quality Issue Badges with Exact Evidence
-                        if rep and rep.issues:
-                            for issue in rep.issues:
-                                is_confirmed_error = issue.severity == "error"
-                                badge_col = "#ef4444" if is_confirmed_error else "#f59e0b"
-                                label_tag = "CONFIRMED ERROR" if is_confirmed_error else "HEURISTIC WARNING"
-                                evidence_html = f'<div style="color: #38bdf8; font-size: 0.78rem; margin-top: 2px;">🔎 <b>Evidence:</b> {issue.evidence}</div>' if issue.evidence else ""
-                                st.markdown(
-                                    f'<div style="background-color: #18181b; border-left: 3px solid {badge_col}; padding: 6px 10px; margin-bottom: 6px; font-size: 0.82rem;">'
-                                    f'<b style="color: {badge_col};">[{label_tag}: {issue.issue_type.upper()}]</b> {issue.description}'
-                                    f'{evidence_html}'
-                                    f'<div style="color: #a8a29e; font-size: 0.78rem; margin-top: 2px;">💡 {issue.recommendation}</div>'
-                                    f'</div>',
-                                    unsafe_allow_html=True
-                                )
-
-                        # Retrieval-Aware Chunk Diagnostics
-                        if rep:
-                            ret_color = "#10b981" if rep.was_retrieved else "#64748b"
-                            queries_str = ", ".join([f"<i>{q}</i>" for q in rep.queries_retrieved_by[:2]])
-                            queries_html = f'<div style="color: #94a3b8; font-size: 0.78rem; margin-top: 3px;"><b>Queries:</b> {queries_str}</div>' if rep.queries_retrieved_by else ""
-                            st.markdown(
-                                f'<div style="background-color: #0f172a; border: 1px solid {ret_color}44; border-radius: 6px; padding: 8px 12px; margin: 6px 0; font-size: 0.82rem;">'
-                                f'<div style="display: flex; justify-content: space-between; align-items: center;">'
-                                f'<span><b>🎯 Retrieval Status:</b> {"Retrieved in Recorded Queries" if rep.was_retrieved else "Not Yet Retrieved in Recorded Traces"}</span>'
-                                f'<span>{"🏆 Best Rank: #" + str(rep.best_rank) if rep.best_rank else ""}</span>'
-                                f'</div>'
-                                f'{queries_html}'
-                                f'<div style="color: #38bdf8; font-size: 0.78rem; margin-top: 3px;"><b>Causality Assessment:</b> {rep.causality_assessment or "Nominal"}</div>'
-                                f'</div>',
-                                unsafe_allow_html=True
+                            terms = ", ".join(sorted(escape(token) for token in matched_toks))
+                            match_block = (
+                                f'<div class="chunk-match">'
+                                f'{pill(f"Query match {len(matched_toks)}/{len(q_tokens)} · {terms}", "info")}'
+                                f"</div>"
                             )
 
-                        # Expandable Chunk Content & Neighboring Chunks
-                        with st.expander("📄 View Chunk Content & Neighboring Boundaries"):
-                            st.markdown("**Chunk Content (Preserves Code, Tables, & Whitespace):**")
+                    issues_html = ""
+                    if rep and rep.issues:
+                        issue_blocks = []
+                        for issue in rep.issues:
+                            is_confirmed_error = issue.severity == "error"
+                            tone = "danger" if is_confirmed_error else ("warning" if issue.severity == "warning" else "info")
+                            label_tag = "Confirmed error" if is_confirmed_error else ("Heuristic warning" if issue.severity == "warning" else "Info")
+                            plain_class = " chunk-issue--plain" if tone == "info" else ""
+                            evidence_html = (
+                                f'<div class="chunk-evidence">EVIDENCE · {escape(issue.evidence)}</div>'
+                                if issue.evidence
+                                else ""
+                            )
+                            issue_blocks.append(
+                                f'<div class="br-verdict br-verdict--{tone} chunk-issue{plain_class}">'
+                                f'<div class="br-verdict-title">{escape(label_tag)} · {escape(issue.issue_type.replace("_", " ").title())}</div>'
+                                f'<div class="br-verdict-body">{escape(issue.description)}</div>'
+                                f"{evidence_html}"
+                                f'<div class="chunk-recommendation">Recommendation · {escape(issue.recommendation)}</div>'
+                                f"</div>"
+                            )
+                        issues_html = "".join(issue_blocks)
+
+                    retrieval_html = ""
+                    if rep:
+                        ret_color = "var(--br-success)" if rep.was_retrieved else "var(--br-border-strong)"
+                        queries_html = (
+                            f'<div class="chunk-queries">Queries · {", ".join(escape(q) for q in rep.queries_retrieved_by[:2])}</div>'
+                            if rep.queries_retrieved_by
+                            else ""
+                        )
+                        best_rank_html = pill(f"Best rank #{rep.best_rank}", "success") if rep.best_rank else ""
+                        retrieval_html = (
+                            f'<div class="br-stage chunk-retrieval" style="border-left-color:{ret_color};">'
+                            f'<div class="chunk-retrieval-row">'
+                            f'<span class="chunk-retrieval-status">'
+                            f'{"Retrieved in recorded queries" if rep.was_retrieved else "Not yet retrieved in recorded traces"}</span>'
+                            f"{best_rank_html}"
+                            f"</div>"
+                            f"{queries_html}"
+                            f'<div class="chunk-causality">Causality · {escape(rep.causality_assessment or "Nominal")}</div>'
+                            f"</div>"
+                        )
+
+                    with st.container():
+                        st.markdown(
+                            f'<div class="chunk-card">'
+                            f'<div class="chunk-head">'
+                            f'<span class="chunk-id">CHUNK #{idx} · {escape(c.chunk_id)}</span>'
+                            f'<span class="chunk-tags">{pill(meta.type, "accent")}</span>'
+                            f"</div>"
+                            f'<div class="chunk-meta">Page {escape(meta.page)} · {escape(meta.heading_path)} · ~{rep.token_count_estimate if rep else "?"} tokens · {len(c.content):,} chars</div>'
+                            f"{match_block}"
+                            f"{issues_html}"
+                            f"{retrieval_html}"
+                            f"</div>",
+                            unsafe_allow_html=True,
+                        )
+
+                        with st.expander("View chunk content & neighboring boundaries"):
+                            st.markdown("**Chunk content (preserves code, tables, and whitespace)**")
                             st.code(c.content, language="markdown")
-                            st.markdown(f"**Overlap with Previous Chunk:** {rep.overlap_prev_chars} chars ({int(rep.overlap_prev_pct * 100)}%)" if rep else "")
-                            st.markdown(f"**Parent Section ID:** `{meta.parent_id}` | **Keywords:** `{meta.keywords}`")
+                            st.markdown(f"**Overlap with previous chunk:** {rep.overlap_prev_chars} chars ({int(rep.overlap_prev_pct * 100)}%)" if rep else "")
+                            st.markdown(f"**Parent section ID:** `{meta.parent_id}` · **Keywords:** `{meta.keywords}`")
 
                             c_prev, c_next = st.columns(2)
                             with c_prev:
-                                st.markdown("**⏮️ Preceding Neighbor:**")
+                                st.markdown("**Preceding neighbor**")
                                 if prev_chunk:
                                     st.caption(f"ID: `{prev_chunk.chunk_id}` (Page {prev_chunk.metadata.page})")
                                     st.text(prev_chunk.content[:150] + "..." if len(prev_chunk.content) > 150 else prev_chunk.content)
                                 else:
-                                    st.caption("None (First chunk in document)")
+                                    st.caption("None (first chunk in document)")
                             with c_next:
-                                st.markdown("**⏭️ Succeeding Neighbor:**")
+                                st.markdown("**Succeeding neighbor**")
                                 if next_chunk:
                                     st.caption(f"ID: `{next_chunk.chunk_id}` (Page {next_chunk.metadata.page})")
                                     st.text(next_chunk.content[:150] + "..." if len(next_chunk.content) > 150 else next_chunk.content)
                                 else:
-                                    st.caption("None (Last chunk in document)")
-
-                        st.markdown("<hr style='border: 0; border-top: 1px solid #27272a; margin: 10px 0;'>", unsafe_allow_html=True)
+                                    st.caption("None (last chunk in document)")
 

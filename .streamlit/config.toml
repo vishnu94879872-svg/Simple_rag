@@ -4,3 +4,11 @@ headless = true
 
 [browser]
 gatherUsageStats = false
+
+[theme]
+base = "dark"
+primaryColor = "#7C9BFF"
+backgroundColor = "#08090C"
+secondaryBackgroundColor = "#11141C"
+textColor = "#EDEFF6"
+font = "sans serif"

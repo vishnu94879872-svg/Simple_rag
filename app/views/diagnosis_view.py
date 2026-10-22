@@ -12,21 +12,25 @@ from observability.models import (
     PipelineTrace,
     EvalBenchmarkItem,
 )
+from app.ui import empty_state, escape, page_header, pill
 
 
 def render_root_cause_assistant():
     """Render Module H - Failure Classification and Root-Cause Assistant."""
-    st.markdown("## 🩺 Complete Failure Investigation Workflow")
-    st.caption("Investigate failed questions end-to-end: original query, ground truth, retrieved chunks, context, answer, citations, failure stage, evidence, fix, and rerun test.")
+    page_header(
+        "Module · Diagnosis",
+        "Root-Cause Assistant",
+        "Investigate a failed question end to end: ground truth, retrieved evidence, context, answer, citations, failure stage, and the rerun test that confirms the fix.",
+    )
 
     traces = storage.list_traces(limit=100)
     benchmarks = storage.list_benchmarks()
     saved_investigations = storage.list_investigations(limit=25)
 
     tab_investigate, tab_saved, tab_manual = st.tabs([
-        "🔬 New Failure Investigation",
-        f"📜 Saved Investigations ({len(saved_investigations)})",
-        "🧪 Heuristic Simulator"
+        "New investigation",
+        f"Saved investigations ({len(saved_investigations)})",
+        "Heuristic simulator",
     ])
 
     # =========================================================================
@@ -95,7 +99,7 @@ def render_root_cause_assistant():
 
         col_run_inv, _ = st.columns([1, 2])
         with col_run_inv:
-            start_inv = st.button("🚀 Run Failure Investigation", key="btn_start_inv", type="primary", use_container_width=True)
+            start_inv = st.button("Run failure investigation", key="btn_start_inv", type="primary", width="stretch")
 
         if start_inv and selected_query:
             with st.spinner("Analyzing retrieval, prompt assembly, and synthesis evidence..."):
@@ -141,7 +145,11 @@ def render_root_cause_assistant():
     # =========================================================================
     with tab_saved:
         if not saved_investigations:
-            st.info("No saved failure investigation reports yet. Run an investigation from Tab 1 to record one.")
+            empty_state(
+                "No saved investigations",
+                "Run an investigation from the first tab to persist a root-cause report with a reproducible regression test.",
+                mark="◇",
+            )
         else:
             inv_opts = {f"{inv.investigation_id} — '{inv.query[:40]}' ({inv.likely_failure_stage.value.upper()})": inv for inv in saved_investigations}
             sel_inv_key = st.selectbox("Select Past Investigation Report:", options=list(inv_opts.keys()))
@@ -179,37 +187,34 @@ def _render_complete_investigation_card(report: FailureInvestigationReport):
     stage_name = report.likely_failure_stage.value.replace("_", " ").title()
     conf_pct = int(report.confidence * 100)
 
-    st.markdown("<hr style='margin: 15px 0;'>", unsafe_allow_html=True)
+    st.divider()
     st.markdown(
-        f'<div style="background-color: #18181b; border: 1px solid #3b82f6; border-radius: 8px; padding: 16px 20px; margin-bottom: 15px;">'
-        f'<div style="display: flex; justify-content: space-between; align-items: center;">'
-        f'<span style="font-weight: 700; color: #60a5fa; font-size: 1.2rem;">🎯 Diagnosed Failure Stage: {stage_name} Failure</span>'
-        f'<div style="display: flex; gap: 8px;">'
-        f'<span style="background-color: #1e3a8a; color: #93c5fd; padding: 3px 10px; border-radius: 9999px; font-weight: 600; font-size: 0.85rem;">Confidence: {conf_pct}%</span>'
-        f'<span style="background-color: #27272a; color: #f59e0b; padding: 3px 10px; border-radius: 9999px; font-weight: 600; font-size: 0.85rem;">Uncertainty: {report.uncertainty}</span>'
-        f'</div>'
-        f'</div>'
-        f'</div>',
-        unsafe_allow_html=True
+        f'<div class="br-verdict br-verdict--danger" style="border-left-color:var(--br-accent);background:var(--br-accent-soft);">'
+        f'<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">'
+        f'<div><div class="br-eyebrow" style="margin-bottom:6px;">Diagnosed failure stage</div>'
+        f'<div class="br-verdict-title" style="font-size:1.15rem;color:var(--br-text);">{escape(stage_name)} failure</div></div>'
+        f'<div style="display:flex;gap:6px;flex-wrap:wrap;">{pill(f"Confidence {conf_pct}%", "accent")}{pill(f"Uncertainty {report.uncertainty}", "warning")}</div>'
+        f'</div></div>',
+        unsafe_allow_html=True,
     )
 
     # 10 Required Items
     col_a, col_b = st.columns(2)
 
     with col_a:
-        st.markdown("#### 1. Original Query")
+        st.markdown("#### 1 · Original query")
         st.code(report.query, language="text")
 
-        st.markdown("#### 2. Expected Answer & Ground-Truth Evidence")
+        st.markdown("#### 2 · Expected answer & ground truth")
         if report.expected_answer or report.expected_source_evidence:
             st.info(f"**Expected Answer:** {report.expected_answer or 'None specified'}\n\n"
                     f"**Ground Truth Evidence:** `{report.expected_source_evidence}`")
         else:
             st.caption("No ground-truth benchmark evidence specified for this query.")
 
-        st.markdown(f"#### 3. Actual Retrieved Chunks ({len(report.actual_retrieved_chunks)})")
+        st.markdown(f"#### 3 · Actual retrieved chunks ({len(report.actual_retrieved_chunks)})")
         if not report.actual_retrieved_chunks:
-            st.error("❌ 0 candidates retrieved. (Retrieval failure)")
+            st.error("0 candidates retrieved. (Retrieval failure)")
         else:
             for idx, c in enumerate(report.actual_retrieved_chunks[:4], 1):
                 cid = c.get("chunk_id", f"c_{idx}")
@@ -218,35 +223,35 @@ def _render_complete_investigation_card(report: FailureInvestigationReport):
                 with st.expander(f"Chunk #{idx}: {cid} (Page {meta.get('page', '?')}, Score: {score:.3f})"):
                     st.text(c.get("content", "")[:300] + "...")
 
-        st.markdown("#### 4. Final LLM Context")
-        with st.expander("📄 View Context Sent to Model"):
-            st.text_area("Prompt Context", value=report.final_llm_context or "No context provided", height=150)
+        st.markdown("#### 4 · Final LLM context")
+        with st.expander("View context sent to the model"):
+            st.text_area("Prompt context", value=report.final_llm_context or "No context provided", height=150)
 
-        st.markdown("#### 5. Generated Answer & Citations")
+        st.markdown("#### 5 · Generated answer & citations")
         st.markdown(f"**Answer:** {report.generated_answer or '*(empty answer)*'}")
         if report.citations:
             st.caption(f"Citations: `{report.citations}`")
 
     with col_b:
-        st.markdown("#### 6. Evaluation Results")
+        st.markdown("#### 6 · Evaluation results")
         st.json(report.evaluation_results)
 
-        st.markdown("#### 7. Likely Failure Stage")
-        st.warning(f"**Stage:** `{report.likely_failure_stage.value}`")
+        st.markdown("#### 7 · Likely failure stage")
+        st.warning(f"Stage: `{report.likely_failure_stage.value}`")
 
-        st.markdown("#### 8. Supporting Evidence")
+        st.markdown("#### 8 · Supporting evidence")
         for ev in report.supporting_evidence:
             st.markdown(f"- {ev}")
 
-        st.markdown("#### 9. Recommended Fix")
+        st.markdown("#### 9 · Recommended fix")
         st.success(report.recommended_fix)
 
-        st.markdown("#### 10. Reproducible Regression Test")
+        st.markdown("#### 10 · Reproducible regression test")
         st.code(report.regression_test_code, language="python")
 
     # Live Rerun Workflow
     st.divider()
-    st.markdown("### ⚡ Live Rerun Test After Applying Fix")
+    st.markdown("### Live rerun test after applying a fix")
     st.caption("Test alternative settings (e.g. increase top_k or switch retrieval strategy) and evaluate before-and-after live.")
 
     c_s, c_k, c_btn = st.columns([1.5, 1, 1.2])
@@ -257,7 +262,7 @@ def _render_complete_investigation_card(report: FailureInvestigationReport):
     with c_btn:
         st.write("")
         st.write("")
-        trigger_rerun = st.button("🚀 Rerun Test Now", type="primary", use_container_width=True)
+        trigger_rerun = st.button("Rerun test now", type="primary", width="stretch")
 
     if trigger_rerun:
         with st.spinner("Executing live rerun benchmark..."):
@@ -275,12 +280,12 @@ def _render_complete_investigation_card(report: FailureInvestigationReport):
     # Display Rerun comparison if available
     rerun_data = st.session_state.get(f"rerun_{report.investigation_id}") or report.rerun_result
     if rerun_data:
-        st.markdown("#### ⚖️ Before & After Verification Comparison")
+        st.markdown("#### Before & after verification")
         comp_table = [
             {"Metric / State": "Retrieval Candidate Count", "Before Fix": f"{len(report.actual_retrieved_chunks)}", "After Rerun": f"{rerun_data['new_retrieved_count']}", "Status": "Improved" if rerun_data['new_retrieved_count'] >= len(report.actual_retrieved_chunks) else "Same"},
             {"Metric / State": "Invalid Citation Count", "Before Fix": f"{report.evaluation_results.get('invalid_citations_count', 0)}", "After Rerun": f"{rerun_data['invalid_citations_count']}", "Status": "Pass" if rerun_data['invalid_citations_count'] == 0 else "Fail"},
-            {"Metric / State": "Target Page Recall", "Before Fix": "Missed" if report.likely_failure_stage.value in ("retrieval", "reranking") else "Found", "After Rerun": "Hit ✅" if rerun_data['recall_hit'] else "Miss ❌", "Status": "Pass" if rerun_data['recall_hit'] else "Investigate"},
+            {"Metric / State": "Target Page Recall", "Before Fix": "Missed" if report.likely_failure_stage.value in ("retrieval", "reranking") else "Found", "After Rerun": "Hit" if rerun_data['recall_hit'] else "Miss", "Status": "Pass" if rerun_data['recall_hit'] else "Investigate"},
             {"Metric / State": "Audit Verdict", "Before Fix": report.evaluation_results.get('audit_verdict', 'unverified'), "After Rerun": rerun_data['audit_verdict'], "Status": rerun_data['verdict']}
         ]
-        st.dataframe(comp_table, use_container_width=True, hide_index=True)
+        st.dataframe(comp_table, width="stretch", hide_index=True)
         st.caption(f"**Updated Answer Generated:** {rerun_data['new_answer']}")

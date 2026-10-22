@@ -4,8 +4,9 @@ Production-oriented RAG debugging, evaluation, and observability dashboard.
 """
 
 import sys
-import streamlit as st
 from pathlib import Path
+
+import streamlit as st
 
 # Ensure the project root is on sys.path so that top-level modules
 # (config, generation, retrieval, ingest, observability) are importable
@@ -16,6 +17,8 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 from config import settings
 from generation.qa_chain import BookRAGPipeline
+from observability.storage import storage
+from app.ui import inject_theme, sidebar_brand, sidebar_nav_label, sidebar_status, storage_banner
 
 # View Modules
 from app.views.overview_view import render_overview
@@ -34,73 +37,13 @@ st.set_page_config(
     page_title="BookRAG Reliability Lab",
     page_icon="🛡️",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
 )
 
-# Custom CSS for dark-mode developer dashboard
-st.markdown("""
-<style>
-    /* Dark charcoal developer theme */
-    .stApp {
-        background-color: #121214;
-        color: #f8fafc;
-    }
-    
-    /* Header typography */
-    .lab-header {
-        font-size: 1.8rem;
-        font-weight: 800;
-        letter-spacing: -0.02em;
-        color: #f8fafc;
-        margin-bottom: 0.1rem;
-    }
-    .lab-sub {
-        font-size: 0.95rem;
-        color: #94a3b8;
-        margin-bottom: 1.2rem;
-    }
-    
-    /* Source badges */
-    .source-tag {
-        display: inline-block;
-        background-color: #1e3a8a33;
-        color: #93c5fd;
-        border: 1px solid #3b82f644;
-        padding: 0.2rem 0.6rem;
-        border-radius: 9999px;
-        font-size: 0.82rem;
-        font-weight: 600;
-        margin-right: 0.4rem;
-        margin-top: 0.4rem;
-    }
-    
-    /* Chunk card and text wrap fixes for horizontal overflow */
-    .chunk-card {
-        background-color: #18181b;
-        border: 1px solid #27272a;
-        border-radius: 8px;
-        padding: 0.85rem;
-        margin-bottom: 0.65rem;
-        word-break: break-word;
-        overflow-wrap: break-word;
-    }
-    
-    /* Ensure code blocks and pre elements wrap gracefully without breaking viewport */
-    pre, code {
-        white-space: pre-wrap !important;
-        word-break: break-word !important;
-    }
-    
-    /* Sidebar styling */
-    section[data-testid="stSidebar"] {
-        background-color: #0d0d10;
-        border-right: 1px solid #27272a;
-    }
-</style>
-""", unsafe_allow_html=True)
+inject_theme()
 
 
-@st.cache_resource(show_spinner="Initializing BookRAG neural embedding & reranking engines...")
+@st.cache_resource(show_spinner="Loading embedding and reranking engines...")
 def get_pipeline():
     """Cache the BookRAG pipeline to avoid re-loading sentence transformer weights."""
     return BookRAGPipeline()
@@ -108,60 +51,52 @@ def get_pipeline():
 
 pipeline = get_pipeline()
 
-# --- Sidebar Navigation ---
+NAV_ITEMS = {
+    "Overview": render_overview,
+    "Book Tutor": render_chat,
+    "Ingestion Monitor": render_ingestion_monitor,
+    "Chunk Inspector": render_chunk_inspector,
+    "Retrieval Playground": render_retrieval_playground,
+    "Trace Viewer": render_trace_viewer,
+    "Citation Verification": render_citation_verification,
+    "Evaluation Lab": render_evaluation_lab,
+    "Root-Cause Assistant": render_root_cause_assistant,
+    "Chunking Experiments": render_experiment_workbench,
+    "Settings & Security": render_settings,
+}
+
+# --- Sidebar ---
 with st.sidebar:
-    st.markdown('<div class="lab-header">🛡️ BookRAG Lab</div>', unsafe_allow_html=True)
-    st.caption("Advanced RAG Reliability & Observability")
+    sidebar_brand()
     st.divider()
+    sidebar_nav_label("Workspace")
 
     selected_module = st.radio(
         "Navigation",
-        options=[
-            "📊 Overview",
-            "💬 Book Tutor Chat",
-            "📥 Ingestion Monitor",
-            "🔍 Chunk Inspector",
-            "🎯 Retrieval Playground",
-            "⏱️ Trace Viewer",
-            "🛡️ Citation Verification",
-            "🧪 Evaluation Lab",
-            "🩺 Root-Cause Assistant",
-            "🔬 Chunking Experiments",
-            "⚙️ Settings & Security"
-        ],
+        options=list(NAV_ITEMS.keys()),
         index=0,
-        label_visibility="collapsed"
+        label_visibility="collapsed",
     )
 
     st.divider()
-    # Live status footer
-    chroma_count = pipeline.retrieval_engine.vector_store.count()
-    bm25_count = pipeline.retrieval_engine.bm25_store.count()
-    st.caption(f"**Chroma Vectors:** `{chroma_count}`")
-    st.caption(f"**BM25 Documents:** `{bm25_count}`")
-    st.caption(f"**LLM Model:** `{settings.llm_model}`")
+    sidebar_nav_label("Runtime")
+    sidebar_status(
+        storage.get_status(),
+        vector_count=pipeline.retrieval_engine.vector_store.count(),
+        bm25_count=pipeline.retrieval_engine.bm25_store.count(),
+        model=settings.llm_model,
+    )
+    st.caption(f"Backend `{storage.backend_name}` · v3.0")
+    st.markdown(
+        '<div style="font-family:var(--br-mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--br-text-dim);margin-top:8px;">'
+        "Ingest → Retrieve → Rerank → Audit"
+        "</div>",
+        unsafe_allow_html=True,
+    )
 
-
-# --- Main Router ---
-if selected_module == "📊 Overview":
-    render_overview(pipeline)
-elif selected_module == "💬 Book Tutor Chat":
-    render_chat(pipeline)
-elif selected_module == "📥 Ingestion Monitor":
-    render_ingestion_monitor()
-elif selected_module == "🔍 Chunk Inspector":
-    render_chunk_inspector()
-elif selected_module == "🎯 Retrieval Playground":
-    render_retrieval_playground()
-elif selected_module == "⏱️ Trace Viewer":
-    render_trace_viewer()
-elif selected_module == "🛡️ Citation Verification":
-    render_citation_verification()
-elif selected_module == "🧪 Evaluation Lab":
-    render_evaluation_lab(pipeline)
-elif selected_module == "🩺 Root-Cause Assistant":
-    render_root_cause_assistant()
-elif selected_module == "🔬 Chunking Experiments":
-    render_experiment_workbench()
-elif selected_module == "⚙️ Settings & Security":
-    render_settings(pipeline)
+# --- Main router ---
+storage_banner(storage.get_status())
+if selected_module in {"Overview", "Book Tutor", "Evaluation Lab", "Settings & Security"}:
+    NAV_ITEMS[selected_module](pipeline)
+else:
+    NAV_ITEMS[selected_module]()

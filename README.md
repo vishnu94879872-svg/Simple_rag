@@ -66,7 +66,19 @@ $$\text{PDF Ingestion} \rightarrow \text{Parsing} \rightarrow \text{Chunking} \r
 | **Module G** | **RAG Evaluation Lab** | Repeatable testing benchmark computing Recall@k, Precision@k, MRR, groundedness, and CSV dataset import/export. |
 | **Module H** | **Root-Cause Assistant** | 10-stage failure classification engine outputting observed evidence, likely causes, recommended fixes, and confirmation tests. |
 | **Module I** | **Chunking Experiment Workbench** | Isolated, non-destructive sandboxes comparing fixed, sentence, paragraph, and heading chunking strategies. |
-| **Settings** | **Security & Threat Model** | Masked API key management, prompt injection boundaries, and safety controls. |
+| **Settings** | **Security & Threat Model** | Masked API key management, prompt injection boundaries, safety controls, and storage backend health. |
+
+---
+
+## UI design system
+
+The dashboard uses a polished dark dev-console visual language:
+
+- **Tokens** live in `app/ui/styles.py` under `:root` — palette, radii, easing, mono/sans stacks, accent-soft surfaces. Change a token there rather than in a view.
+- **Components** (`app/ui/components.py`) provide the page header, hero, pills, verdict banners, empty states, sidebar brand/status, and the storage health banner.
+- **Theme** defaults are in `.streamlit/config.toml`; the injected CSS handles the sidebar, metric cards, tabs, inputs, dataframes, chat, and responsive/reduced-motion behavior.
+- All dynamic text rendered as HTML is escaped. User- and PDF-derived strings must go through `escape()`.
+- The hero lattice image is served locally from `assets/brand/hero-lattice.jpg`; no external asset request is required.
 
 ---
 
@@ -85,7 +97,9 @@ pip install -r requirements.txt
 ```bash
 cp .env.example .env
 ```
-Edit `.env` to configure your LLM provider (`openai`, `ollama`, or offline mode):
+Run this from the project root: `.env.example` sits beside `config.py`, and the copied `.env` must stay in that same directory (not inside `app/`). The real `.env` is gitignored, while `.env.example` is tracked.
+
+Edit `.env` to configure your LLM provider (`openai`, `ollama`, or offline mode). If you do not have an API key yet, skip this step entirely — an absent `.env` runs the deterministic offline fallback:
 ```env
 LLM_PROVIDER=openai
 LLM_API_KEY=your_api_key_here
@@ -95,15 +109,37 @@ RERANKER_MODEL=BAAI/bge-reranker-base
 ```
 *(Note: If `LLM_API_KEY` is omitted, BookRAG automatically runs in deterministic offline fallback mode so all tests and retrieval workflows operate reliably without external API costs).*
 
-### 3. Launching the Web Application
+### 3. Optional: Supabase-backed observability
+
+By default, all telemetry is stored as JSON under `data/observability/`. To persist it in Supabase instead:
+
+1. Open the Supabase SQL editor and run [`scripts/supabase_schema.sql`](scripts/supabase_schema.sql). It creates the `public.observability_records` table, an `updated_at` trigger, and indexes.
+2. Add the connection settings to `.env`:
+
+```env
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_KEY=your_service_role_key_here
+SUPABASE_TABLE=observability_records
+STORAGE_BACKEND=auto
+```
+
+`auto` uses Supabase when both values are present and otherwise stays on local files. Use `local` to force files, or `supabase` to require the remote backend.
+
+Credentials are read server-side only; the service-role key never reaches the browser. The table uses one row per record with `kind`, `record_id`, and a JSONB `payload`, covering traces, evaluation runs, ingestion jobs, benchmarks, experiments, and failure investigations.
+
+**Failure behavior is explicit, never silent.** If a Supabase read or write fails, the adapter logs the error, marks storage as degraded, and serves that operation from local files. Degradation is shown in the sidebar and in **Settings & Security → Supabase & Storage**, along with the last error and fallback-operation count. Once the connection is healthy, use **Push local records to Supabase** in that panel (or `storage.push_local_records()`) to backfill records written while offline. Backfill fails loudly if any upsert is rejected.
+
+Tests force the local backend and redirect `OBSERVABILITY_DIR` to a temporary directory, so running the suite never touches Supabase or your project telemetry.
+
+### 4. Launching the Web Application
 ```bash
 streamlit run app/streamlit_app.py
 ```
 Open your browser to `http://localhost:8501` to access the dark-mode developer dashboard.
 
-### 4. Running the Evaluation Suite
+### 5. Running the Evaluation Suite
 ```bash
-# Run full automated test suite (25+ tests)
+# Run full automated test suite
 python -m pytest tests/ -v
 
 # Run observability module tests specifically

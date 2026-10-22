@@ -9,20 +9,28 @@ from config import settings
 from observability.storage import storage
 from observability.experiment_workbench import chunk_experiment_workbench
 from observability.models import ChunkExperimentResult
+from app.ui import empty_state, page_header
 
 
 def render_experiment_workbench():
     """Render Module I - Controlled Experiments Workbench."""
-    st.markdown("## 🔬 Controlled Experiments Workbench")
-    st.caption("Benchmark alternative chunking and retrieval configurations in isolated sandboxes. Experimental indexes are kept strictly separate from the active production index.")
+    page_header(
+        "Module · Experiments",
+        "Chunking Experiments",
+        "Benchmark alternative chunking and retrieval configurations in isolated sandboxes that never touch the production index.",
+    )
 
-    tab_chunk, tab_retrieval = st.tabs(["🧩 Chunking Experiments Sandbox", "🔍 Retrieval Strategy & Top-K Matrix"])
+    tab_chunk, tab_retrieval = st.tabs(["Chunking sandbox", "Retrieval matrix"])
 
     # --- TAB 1: Chunking Experiments ---
     with tab_chunk:
         book_files = list(Path(settings.data_dir / "books").glob("*.pdf")) if (settings.data_dir / "books").exists() else []
         if not book_files:
-            st.warning("No PDF books available in `data/books/` to run chunking experiments.")
+            empty_state(
+                "No PDF books available",
+                "Add a PDF to data/books/ or ingest one from the Ingestion Monitor to run chunking experiments.",
+                mark="▤",
+            )
         else:
             # Configuration controls
             c_pdf, c_strat = st.columns([1.5, 1.5])
@@ -47,9 +55,9 @@ def render_experiment_workbench():
 
             c_btn1, c_btn2 = st.columns(2)
             with c_btn1:
-                run_text_exp = st.button("🧪 Run Text Splitter Experiment", use_container_width=True)
+                run_text_exp = st.button("Run text splitter experiment", width="stretch")
             with c_btn2:
-                run_bench_exp = st.button("🚀 Run Reproducible Benchmark Experiment", type="primary", use_container_width=True, help="Indexes chunks in an ISOLATED sandbox and benchmarks Recall@k, Groundedness, Citation Accuracy, and Latency against quantum_bench.")
+                run_bench_exp = st.button("Run reproducible benchmark", type="primary", width="stretch", help="Indexes chunks in an isolated sandbox and benchmarks Recall@k, groundedness, citation accuracy, and latency against quantum_bench.")
 
             if run_text_exp:
                 with st.spinner(f"Evaluating '{strategy_name}' chunking on '{selected_pdf}'..."):
@@ -81,7 +89,7 @@ def render_experiment_workbench():
             experiments = storage.list_experiments(limit=25)
             if experiments:
                 st.divider()
-                st.markdown("### 📊 Reproducible Experiments Benchmark History")
+                st.markdown("### Reproducible experiment history")
                 exp_table = []
                 for exp in experiments:
                     dist = exp.size_distribution
@@ -97,20 +105,20 @@ def render_experiment_workbench():
                         "Groundedness": f"{exp.groundedness_score * 100:.1f}%" if exp.groundedness_score is not None else "—",
                         "Citation Acc": f"{exp.citation_accuracy * 100:.1f}%" if exp.citation_accuracy is not None else "—",
                         "Avg Latency": f"{exp.avg_latency_ms:.1f} ms" if exp.avg_latency_ms is not None else f"{exp.processing_duration_ms:.0f} ms",
-                        "Sandbox Index": "Isolated ✅" if exp.is_experimental_index else "Active"
+                        "Sandbox Index": "Isolated" if exp.is_experimental_index else "Active"
                     })
-                st.dataframe(exp_table, use_container_width=True, hide_index=True)
+                st.dataframe(exp_table, width="stretch", hide_index=True)
 
                 # Sample chunk inspector from most recent experiment
                 latest = experiments[0]
-                st.markdown(f"#### 📑 Sample Chunks from Latest Run: `{latest.experiment_id}` ({latest.strategy_name})")
+                st.markdown(f"#### Sample chunks from latest run · `{latest.experiment_id}` ({latest.strategy_name})")
                 for sample in latest.sample_chunks:
                     st.markdown(f"**Sample Chunk #{sample['index']}** (*{sample['chars']} chars*):")
                     st.code(sample["preview"], language="markdown")
 
     # --- TAB 2: Retrieval Strategy & Top-K Matrix ---
     with tab_retrieval:
-        st.markdown("### 🎛️ Retrieval Strategy & Top-k Evaluation Matrix")
+        st.markdown("### Retrieval strategy & top-k matrix")
         st.caption("Benchmark Vector vs Keyword (BM25) vs Hybrid RRF vs Reranked across top-k settings (3, 5, 10).")
 
         c_strat_sel, c_k_sel = st.columns(2)
@@ -135,7 +143,7 @@ def render_experiment_workbench():
 
         st.caption(f"Evaluation test suite: {len(test_questions)} canonical verification queries across {len(eval_strategies)} strategies x {len(eval_ks)} top-k settings.")
 
-        if st.button("⚡ Run Retrieval Comparison Matrix", use_container_width=True):
+        if st.button("Run retrieval comparison matrix", type="primary", width="stretch"):
             from retrieval.engine import RetrievalEngine
             engine = RetrievalEngine()
 
@@ -184,5 +192,5 @@ def render_experiment_workbench():
                     progress_bar.progress(comb_idx / total_combinations)
 
             st.success("Matrix evaluation completed successfully! Production configuration was preserved.")
-            st.dataframe(matrix_results, use_container_width=True, hide_index=True)
+            st.dataframe(matrix_results, width="stretch", hide_index=True)
 

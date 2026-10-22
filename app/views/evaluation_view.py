@@ -7,14 +7,18 @@ from typing import List, Dict, Any
 from observability.storage import storage
 from observability.eval_lab import eval_lab
 from observability.models import EvalRun, EvalBenchmarkItem
+from app.ui import empty_state, page_header
 
 
 def render_evaluation_lab(pipeline):
     """Render Module G - RAG Evaluation Lab."""
-    st.markdown("## 🧪 RAG Evaluation Lab")
-    st.caption("Execute repeatable regression benchmarks, compute deterministic retrieval & generation metrics, and compare pipelines side by side.")
+    page_header(
+        "Module · Evaluation",
+        "Evaluation Lab",
+        "Run repeatable regression benchmarks, compute deterministic retrieval and generation metrics, and compare pipelines side by side.",
+    )
 
-    tab_run, tab_history, tab_datasets = st.tabs(["🚀 Run Benchmark", "📈 Run History & Comparison", "📁 Benchmark Datasets"])
+    tab_run, tab_history, tab_datasets = st.tabs(["Run benchmark", "History & comparison", "Benchmark datasets"])
 
     benchmarks = storage.list_benchmarks()
     if not benchmarks:
@@ -30,9 +34,20 @@ def render_evaluation_lab(pipeline):
         with c3:
             eval_top_k = st.selectbox("Top-k Candidates", options=[3, 5, 10], index=1, key="eval_topk")
 
-        limit_items = st.number_input("Limit evaluation items (0 for all)", min_value=0, max_value=100, value=5, help="Use a small limit for fast interactive benchmarking, or 0 for complete benchmark.")
+        c_limit, c_action = st.columns([1, 2.2], gap="medium", vertical_alignment="bottom")
+        with c_limit:
+            limit_items = st.number_input(
+                "Limit evaluation items (0 for all)",
+                min_value=0,
+                max_value=100,
+                value=5,
+                help="Use a small limit for fast interactive benchmarking, or 0 for complete benchmark.",
+                width="stretch",
+            )
+        with c_action:
+            run_benchmark = st.button("Execute benchmark run", type="primary", width="stretch")
 
-        if st.button("🔥 Execute Benchmark Run", use_container_width=True):
+        if run_benchmark:
             with st.spinner(f"Running benchmark '{selected_bench}' under strategy '{eval_strategy}'..."):
                 run = eval_lab.run_benchmark(
                     benchmark_name=selected_bench,
@@ -47,9 +62,13 @@ def render_evaluation_lab(pipeline):
     with tab_history:
         runs = storage.list_eval_runs(limit=30)
         if not runs:
-            st.info("No benchmark runs recorded yet. Execute a benchmark run above.")
+            empty_state(
+                "No benchmark runs recorded",
+                "Execute a benchmark run above to establish a baseline for recall, ranking quality, and groundedness.",
+                mark="◫",
+            )
         else:
-            st.markdown("### 📊 Historical Benchmark Runs")
+            st.markdown("### Historical benchmark runs")
             summary_table = []
             for r in runs:
                 summary_table.append({
@@ -66,11 +85,11 @@ def render_evaluation_lab(pipeline):
                     "Abstention Acc": f"{r.abstention_accuracy:.1f}%",
                     "Latency (ms)": f"{r.avg_latency_ms:.0f}"
                 })
-            st.dataframe(summary_table, use_container_width=True, hide_index=True)
+            st.dataframe(summary_table, width="stretch", hide_index=True)
 
             # Side-by-side comparison
             st.divider()
-            st.markdown("### ⚖️ Side-by-Side Run Comparator & Empirical Delta")
+            st.markdown("### Side-by-side run comparator")
             st.caption("Side-by-side statistical comparison. Improvements are verified against empirical measurements only.")
 
             if len(runs) >= 2:
@@ -90,11 +109,10 @@ def render_evaluation_lab(pipeline):
                         if abs(diff) < 0.001:
                             return "0.00 (Unchanged)"
                         if is_latency:
-                            # Lower latency is better
-                            verdict = "Faster 🚀" if diff < 0 else "Slower ⚠️"
+                            verdict = "Faster" if diff < 0 else "Slower"
                             return f"{sign}{diff:.1f} ms ({verdict})"
                         else:
-                            verdict = "Improved ✅" if diff > 0 else "Regressed 🔻"
+                            verdict = "Improved" if diff > 0 else "Regressed"
                             return f"{sign}{diff:.2f}% ({verdict})"
 
                     diff_metrics = [
@@ -107,11 +125,11 @@ def render_evaluation_lab(pipeline):
                         {"Metric": "Abstention Accuracy", f"Baseline ({run1_id})": f"{run1.abstention_accuracy:.1f}%", f"Candidate ({run2_id})": f"{run2.abstention_accuracy:.1f}%", "Delta": calc_delta(run2.abstention_accuracy, run1.abstention_accuracy)},
                         {"Metric": "Average Latency", f"Baseline ({run1_id})": f"{run1.avg_latency_ms:.0f} ms", f"Candidate ({run2_id})": f"{run2.avg_latency_ms:.0f} ms", "Delta": calc_delta(run2.avg_latency_ms, run1.avg_latency_ms, is_latency=True)},
                     ]
-                    st.dataframe(diff_metrics, use_container_width=True, hide_index=True)
+                    st.dataframe(diff_metrics, width="stretch", hide_index=True)
 
                     # Stage Latencies Breakdown comparison if present
                     if getattr(run1, 'stage_latencies_avg_ms', None) or getattr(run2, 'stage_latencies_avg_ms', None):
-                        st.markdown("#### ⏱️ Stage Latency Breakdown (ms)")
+                        st.markdown("#### Stage latency breakdown (ms)")
                         stg_keys = set(list(getattr(run1, 'stage_latencies_avg_ms', {}).keys()) + list(getattr(run2, 'stage_latencies_avg_ms', {}).keys()))
                         stg_rows = []
                         for sk in sorted(stg_keys):
@@ -124,18 +142,18 @@ def render_evaluation_lab(pipeline):
                                 "Delta": f"{s2 - s1:+.2f} ms"
                             })
                         if stg_rows:
-                            st.dataframe(stg_rows, use_container_width=True, hide_index=True)
+                            st.dataframe(stg_rows, width="stretch", hide_index=True)
 
     # --- TAB 3: Benchmark Datasets ---
     with tab_datasets:
-        st.markdown("### 📁 Dataset Management (Import & Export)")
+        st.markdown("### Dataset management")
         curr_bench = st.selectbox("Select Dataset to Inspect / Export:", options=benchmarks, index=0, key="inspect_bench")
         items = storage.load_benchmark(curr_bench)
 
         # Download CSV
         csv_data = eval_lab.export_benchmark_to_csv(items)
         st.download_button(
-            label="💾 Export Dataset as CSV",
+            label="Export dataset as CSV",
             data=csv_data,
             file_name=f"{curr_bench}.csv",
             mime="text/csv"
@@ -143,7 +161,7 @@ def render_evaluation_lab(pipeline):
 
         # Upload CSV
         st.divider()
-        st.markdown("#### 📥 Import Custom Benchmark Dataset (CSV)")
+        st.markdown("#### Import custom benchmark (CSV)")
         uploaded_csv = st.file_uploader("Upload CSV Benchmark (columns: id, question, expected_pages, topic, should_abstain)", type=["csv"])
         new_bench_name = st.text_input("New Benchmark Name:", value="custom_bench")
         if uploaded_csv and st.button("Import and Save Benchmark"):
@@ -165,4 +183,4 @@ def render_evaluation_lab(pipeline):
             }
             for it in items
         ]
-        st.dataframe(items_table, use_container_width=True, hide_index=True)
+        st.dataframe(items_table, width="stretch", hide_index=True)

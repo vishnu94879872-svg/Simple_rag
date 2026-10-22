@@ -45,6 +45,19 @@ class Settings(BaseModel):
     chunk_size: int = Field(default_factory=lambda: int(os.getenv("CHUNK_SIZE", "800")))
     chunk_overlap: int = Field(default_factory=lambda: int(os.getenv("CHUNK_OVERLAP", "150")))
 
+    # Supabase-backed observability
+    supabase_url: str = Field(default_factory=lambda: os.getenv("SUPABASE_URL", "").strip())
+    supabase_key: str = Field(default_factory=lambda: os.getenv("SUPABASE_KEY", "").strip())
+    supabase_table: str = Field(default_factory=lambda: os.getenv("SUPABASE_TABLE", "observability_records").strip())
+    storage_backend: str = Field(default_factory=lambda: os.getenv("STORAGE_BACKEND", "auto").strip().lower())
+
+    @property
+    def supabase_configured(self) -> bool:
+        if not self.supabase_url or not self.supabase_key:
+            return False
+        placeholders = ("your-project", "your_service_role_key")
+        return not any(token in self.supabase_url or token in self.supabase_key for token in placeholders)
+
     def ensure_directories(self) -> None:
         """Create necessary data directories if they don't exist."""
         self.data_dir.mkdir(parents=True, exist_ok=True)

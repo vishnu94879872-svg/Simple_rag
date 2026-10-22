@@ -19,8 +19,46 @@ from observability.models import (
 logger = logging.getLogger(__name__)
 
 
+def default_benchmark_items() -> List[EvalBenchmarkItem]:
+    """Build the bundled quantum benchmark, including two abstention probes."""
+    from eval import EVAL_PAIRS
+
+    items: List[EvalBenchmarkItem] = []
+    for i, pair in enumerate(EVAL_PAIRS, 1):
+        items.append(
+            EvalBenchmarkItem(
+                id=f"bench_{i:03d}",
+                question=pair["question"],
+                expected_pages=[pair["expected_page"]],
+                topic=pair.get("topic"),
+                should_abstain=False,
+            )
+        )
+    items.append(
+        EvalBenchmarkItem(
+            id=f"bench_{len(items) + 1:03d}",
+            question="What is the capital city of Australia according to the quantum book?",
+            expected_pages=[],
+            topic="Out-of-Domain Abstention",
+            should_abstain=True,
+        )
+    )
+    items.append(
+        EvalBenchmarkItem(
+            id=f"bench_{len(items) + 1:03d}",
+            question="How do black holes evaporate via Hawking radiation?",
+            expected_pages=[],
+            topic="Unindexed Physics Topic",
+            should_abstain=True,
+        )
+    )
+    return items
+
+
 class ObservabilityStorage:
     """Thread-safe file-backed storage manager for observability records."""
+
+    backend_name = "local"
 
     _instance = None
     _lock = threading.Lock()
@@ -154,38 +192,7 @@ class ObservabilityStorage:
     def _seed_default_benchmark_if_needed(self) -> None:
         bench_file = self.benchmarks_dir / "quantum_bench.json"
         if not bench_file.exists():
-            from eval import EVAL_PAIRS
-            items = []
-            for i, p in enumerate(EVAL_PAIRS, 1):
-                items.append(
-                    EvalBenchmarkItem(
-                        id=f"bench_{i:03d}",
-                        question=p["question"],
-                        expected_pages=[p["expected_page"]],
-                        topic=p.get("topic"),
-                        should_abstain=False
-                    )
-                )
-            # Add 2 out-of-domain / unanswerable questions to test abstention
-            items.append(
-                EvalBenchmarkItem(
-                    id=f"bench_{len(items)+1:03d}",
-                    question="What is the capital city of Australia according to the quantum book?",
-                    expected_pages=[],
-                    topic="Out-of-Domain Abstention",
-                    should_abstain=True
-                )
-            )
-            items.append(
-                EvalBenchmarkItem(
-                    id=f"bench_{len(items)+1:03d}",
-                    question="How do black holes evaporate via Hawking radiation?",
-                    expected_pages=[],
-                    topic="Unindexed Physics Topic",
-                    should_abstain=True
-                )
-            )
-            self.save_benchmark("quantum_bench", items)
+            self.save_benchmark("quantum_bench", default_benchmark_items())
 
     # --- Experiments ---
     def save_experiment(self, exp: ChunkExperimentResult) -> None:
@@ -203,6 +210,8 @@ class ObservabilityStorage:
                     exps.append(ChunkExperimentResult.model_validate_json(f.read()))
             except Exception as e:
                 logger.error("Error reading experiment file %s: %s", p, e)
+        return exps
+
     # --- Failure Investigations ---
     def save_investigation(self, report: FailureInvestigationReport) -> None:
         with self._lock:
@@ -232,5 +241,41 @@ class ObservabilityStorage:
                 logger.error("Error reading investigation file %s: %s", p, e)
         return reports
 
+    def get_status(self) -> Dict[str, Any]:
+        """Describe the active backend without performing any network IO."""
+        return {
+            "backend": self.backend_name,
+            "configured": settings.supabase_configured,
+            "connected": False,
+            "degraded": False,
+            "fallback_ops": 0,
+            "last_error": getattr(self, "init_error", None),
+            "last_error_at": None,
+            "project_host": None,
+            "table": settings.supabase_table,
+            "local_dir": str(self.base_dir),
+        }
 
-storage = ObservabilityStorage()
+
+def build_storage() -> ObservabilityStorage:
+    """Select Supabase when configured and reachable, otherwise local files."""
+    backend = settings.storage_backend
+    use_supabase = backend == "supabase" or (backend == "auto" and settings.supabase_configured)
+    if not use_supabase:
+        return ObservabilityStorage()
+    if not settings.supabase_configured:
+        logger.warning("STORAGE_BACKEND=supabase but SUPABASE_URL/SUPABASE_KEY are unset; using local storage.")
+        return ObservabilityStorage()
+
+    try:
+        from observability.supabase_storage import SupabaseObservabilityStorage
+
+        return SupabaseObservabilityStorage()
+    except Exception as exc:
+        logger.exception("Supabase storage initialization failed; using local files.")
+        store = ObservabilityStorage()
+        store.init_error = f"{type(exc).__name__}: {exc}"
+        return store
+
+
+storage = build_storage()
