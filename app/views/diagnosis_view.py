@@ -50,7 +50,7 @@ def render_root_cause_assistant():
 
         if source_mode == "Recent Pipeline Traces":
             if not traces:
-                st.info("No recorded traces found. Execute a query in Chat or CLI to record traces.")
+                st.info("No recorded traces found. Execute a query in Book Tutor or CLI to record traces.")
             else:
                 trace_opts = {
                     f"{t.trace_id} — '{t.query[:45]}...' ({t.status}, {len(t.retrieved_chunk_ids)} chunks)": t

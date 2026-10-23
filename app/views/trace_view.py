@@ -20,7 +20,7 @@ def render_trace_viewer():
     if not traces:
         empty_state(
             "No query traces recorded yet",
-            "Submit a question in Chat or run a query in the Retrieval Playground to generate execution traces.",
+            "Submit a question in Book Tutor or run a query in the Retrieval Playground to generate execution traces.",
             mark="⌁",
         )
         return

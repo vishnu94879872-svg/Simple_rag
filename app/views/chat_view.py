@@ -45,7 +45,7 @@ def render_chat(pipeline):
     """Render the Chat interface."""
     page_header(
         "Module · Conversational QA",
-        "Chat",
+        "Book Tutor",
         "Ask natural-language questions about indexed books. Every answer is grounded with chapter and page citations, then audited for grounding.",
     )
 

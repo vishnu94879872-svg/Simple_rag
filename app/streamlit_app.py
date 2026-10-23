@@ -53,7 +53,7 @@ pipeline = get_pipeline()
 
 NAV_ITEMS = {
     "Overview": render_overview,
-    "Chat": render_chat,
+    "Book Tutor": render_chat,
     "Ingestion Monitor": render_ingestion_monitor,
     "Chunk Inspector": render_chunk_inspector,
     "Retrieval Playground": render_retrieval_playground,
@@ -95,7 +95,7 @@ with st.sidebar:
 
 # --- Main router ---
 storage_banner(storage.get_status())
-if selected_module in {"Overview", "Chat", "Evaluation Lab", "Settings & Security"}:
+if selected_module in {"Overview", "Book Tutor", "Evaluation Lab", "Settings & Security"}:
     NAV_ITEMS[selected_module](pipeline)
 else:
     NAV_ITEMS[selected_module]()

@@ -21,7 +21,7 @@ def render_citation_verification():
     if not traces:
         empty_state(
             "No recorded traces to audit",
-            "Run a question through Chat first, then return here to verify its citations.",
+            "Run a question through Book Tutor first, then return here to verify its citations.",
             mark="⌁",
         )
         return
