@@ -11,6 +11,7 @@ from retrieval.bm25_store import BM25Store
 from retrieval.fusion import reciprocal_rank_fusion
 from retrieval.reranker import BGEReranker
 from retrieval.context_expansion import ContextExpander
+from retrieval._store_factory import get_vector_store, get_bm25_store
 
 logger = logging.getLogger(__name__)
 
@@ -32,15 +33,15 @@ class RetrievalEngine:
         self,
         query_rewriter: Optional[QueryRewriter] = None,
         embedding_manager: Optional[EmbeddingManager] = None,
-        vector_store: Optional[ChromaVectorStore] = None,
-        bm25_store: Optional[BM25Store] = None,
+        vector_store=None,
+        bm25_store=None,
         reranker: Optional[BGEReranker] = None,
         expander: Optional[ContextExpander] = None
     ):
         self.query_rewriter = query_rewriter or QueryRewriter()
         self.embedding_manager = embedding_manager or EmbeddingManager()
-        self.vector_store = vector_store or ChromaVectorStore()
-        self.bm25_store = bm25_store or BM25Store()
+        self.vector_store = vector_store or get_vector_store()
+        self.bm25_store = bm25_store or get_bm25_store()
         self.reranker = reranker or BGEReranker()
         self.expander = expander or ContextExpander()
 

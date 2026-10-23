@@ -6,8 +6,6 @@ from typing import List, Dict, Any, Optional
 from config import settings
 from ingest.models import Chunk
 from retrieval.embeddings import EmbeddingManager
-from retrieval.vector_store import ChromaVectorStore
-from retrieval.bm25_store import BM25Store
 
 logger = logging.getLogger(__name__)
 
@@ -18,12 +16,13 @@ class BookIndexer:
     def __init__(
         self,
         embedding_manager: Optional[EmbeddingManager] = None,
-        vector_store: Optional[ChromaVectorStore] = None,
-        bm25_store: Optional[BM25Store] = None
+        vector_store=None,
+        bm25_store=None,
     ):
+        from retrieval._store_factory import get_vector_store, get_bm25_store
         self.embedding_manager = embedding_manager or EmbeddingManager()
-        self.vector_store = vector_store or ChromaVectorStore()
-        self.bm25_store = bm25_store or BM25Store()
+        self.vector_store = vector_store or get_vector_store()
+        self.bm25_store = bm25_store or get_bm25_store()
 
     def index(self, chunks: List[Chunk], clean_existing: bool = True) -> Dict[str, Any]:
         """
