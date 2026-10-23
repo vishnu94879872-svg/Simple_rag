@@ -41,10 +41,10 @@ def _render_chunks(chunks) -> None:
 
 
 def render_chat(pipeline):
-    """Render the Book Tutor chat interface."""
+    """Render the Chat interface."""
     page_header(
         "Module · Conversational QA",
-        "Book Tutor",
+        "Chat",
         "Ask natural-language questions about indexed books. Every answer is grounded with chapter and page citations, then audited for grounding.",
     )
 

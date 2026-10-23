@@ -157,62 +157,6 @@ section[data-testid="stSidebar"] hr {
 }
 
 /* ------------------------------------------------------------ sidebar nav */
-section[data-testid="stSidebar"] [data-testid="stElementContainer"]:has([data-testid="stRadio"]),
-section[data-testid="stSidebar"] [data-testid="stRadio"],
-section[data-testid="stSidebar"] [data-testid="stRadio"] > div,
-section[data-testid="stSidebar"] [data-testid="stRadioGroup"],
-section[data-testid="stSidebar"] [data-testid="stRadioGroup"] > div {
-  width: 100% !important;
-}
-
-section[data-testid="stSidebar"] div[role="radiogroup"] {
-  gap: 2px !important;
-}
-
-section[data-testid="stSidebar"] div[role="radiogroup"] label {
-  width: 100% !important;
-  padding: 9px 12px !important;
-  border-radius: var(--br-radius-sm);
-  border: 1px solid transparent;
-  margin: 0 !important;
-  cursor: pointer;
-  box-shadow: inset 2px 0 0 transparent;
-  transition: background 0.18s var(--br-ease), border-color 0.18s var(--br-ease),
-    box-shadow 0.18s var(--br-ease), color 0.18s var(--br-ease);
-}
-
-section[data-testid="stSidebar"] div[role="radiogroup"] label:hover {
-  background: var(--br-surface);
-  border-color: var(--br-border);
-}
-
-section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) {
-  background: var(--br-accent-soft);
-  border-color: rgba(124, 155, 255, 0.28);
-  box-shadow: inset 2px 0 0 var(--br-accent);
-}
-
-section[data-testid="stSidebar"] div[role="radiogroup"] label p {
-  font-size: 13.5px !important;
-  font-weight: 500;
-  color: var(--br-text-muted);
-  letter-spacing: -0.01em;
-}
-
-section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) p {
-  color: var(--br-text);
-  font-weight: 600;
-}
-
-/* Streamlit nests the control in a wrapper div; hide only the radio circle. */
-section[data-testid="stSidebar"] div[role="radiogroup"] label > div > div:first-child {
-  display: none !important;
-}
-
-section[data-testid="stSidebar"] div[role="radiogroup"] label > div {
-  width: 100%;
-  gap: 0 !important;
-}
 
 /* -------------------------------------------------------------- status box */
 .br-status {
