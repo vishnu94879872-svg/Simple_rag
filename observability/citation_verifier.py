@@ -18,10 +18,10 @@ ABSTENTION_PHRASES = [
     "does not contain information about",
 ]
 
-# Citation regex: (Chapter X, Page Y) or (Chapter ..., Page ...)
+# Citation regex: (Chapter X, Page Y), (Introduction, Page 1), (Introduction, 1), or (Page 1)
 CITATION_REGEX = re.compile(
-    r"\((?:(?:Chapter|CHAPTER)\s*([^,]+),\s*(?:Page|PAGE)\s*(\d+)|(?:Page|PAGE)\s*(\d+))\)",
-    re.IGNORECASE
+    r"\((?:([^,()]+),\s*(?:(?:Page|PAGE|p\.?)\s*)?(\d+)|\b(?:Page|PAGE|p\.?)\s*(\d+))\)",
+    re.IGNORECASE | re.UNICODE
 )
 
 
@@ -34,7 +34,8 @@ class CitationVerifier:
     def extract_citations(self, text: str) -> List[Dict[str, Any]]:
         """Extract all (Chapter, Page) citation tuples from text."""
         citations = []
-        for match in CITATION_REGEX.finditer(text):
+        norm_text = re.sub(r"[\u00a0\u2000-\u200b\u202f\u205f\u3000]", " ", text or "")
+        for match in CITATION_REGEX.finditer(norm_text):
             chap = match.group(1) or "Unknown Chapter"
             p_str = match.group(2) or match.group(3) or "1"
             try:

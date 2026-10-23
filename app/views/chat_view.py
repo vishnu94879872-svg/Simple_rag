@@ -5,9 +5,10 @@ import streamlit as st
 from app.ui import empty_state, escape, page_header, pill
 
 SUGGESTED_QUESTIONS = [
+    ("Constitutional AI", "What is Constitutional AI?"),
+    ("RAG Pipeline Stages", "What are the main stages of a RAG pipeline?"),
     ("Qubit definition", "What is a qubit and how is it defined?"),
-    ("Superposition example", "Explain quantum superposition with an example."),
-    ("Shor vs RSA", "How does Shor's algorithm challenge RSA encryption?"),
+    ("Quantum Superposition", "Explain quantum superposition with an example."),
 ]
 
 
