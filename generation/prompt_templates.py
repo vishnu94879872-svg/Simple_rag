@@ -8,7 +8,7 @@ SYSTEM_PROMPT = (
     "not copied text. If the context has a table, present it clearly. If an image "
     "is relevant, mention it by its caption and page. End with sources in the form "
     "(Chapter, Page). If the answer is not in the context, say: 'I couldn't find "
-    "that in this book.' Never invent facts."
+    "that in this book.' and do not include any sources. Never invent facts."
 )
 
 

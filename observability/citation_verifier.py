@@ -18,9 +18,9 @@ ABSTENTION_PHRASES = [
     "does not contain information about",
 ]
 
-# Citation regex: (Chapter X, Page Y), (Introduction, Page 1), (Introduction, 1), or (Page 1)
+# Citation regex: (Chapter X, Page Y), (Introduction, General, Page 1), or (Page 1)
 CITATION_REGEX = re.compile(
-    r"\((?:([^,()]+),\s*(?:(?:Page|PAGE|p\.?)\s*)?(\d+)|\b(?:Page|PAGE|p\.?)\s*(\d+))\)",
+    r"\((?:([^()]+?),\s*(?:(?:Page|PAGE|p\.?)\s*)?(\d+)|\b(?:Page|PAGE|p\.?)\s*(\d+))\)",
     re.IGNORECASE | re.UNICODE
 )
 
