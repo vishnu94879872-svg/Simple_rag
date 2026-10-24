@@ -105,6 +105,16 @@ class SupabaseVectorStore:
             logger.warning("Could not count rag_chunks: %s", e)
             return 0
 
+    def get_distinct_books(self) -> List[str]:
+        """Fetch all distinct book titles stored in Supabase rag_chunks."""
+        try:
+            resp = self._client.table("rag_chunks").select("book_title").execute()
+            titles = sorted(list({r["book_title"] for r in (resp.data or []) if r.get("book_title")}))
+            return titles
+        except Exception as e:
+            logger.warning("Could not fetch distinct books from Supabase: %s", e)
+            return []
+
     # ------------------------------------------------------------------
     # Delete / Reset
     # ------------------------------------------------------------------

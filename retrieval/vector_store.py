@@ -62,6 +62,16 @@ class ChromaVectorStore:
         """Return total number of vectors in the collection."""
         return self.collection.count()
 
+    def get_distinct_books(self) -> List[str]:
+        """Fetch all distinct book titles stored in ChromaDB collection."""
+        try:
+            metas = self.collection.get(include=["metadatas"])["metadatas"]
+            titles = sorted(list({m.get("book_title") for m in metas if m and m.get("book_title")}))
+            return titles
+        except Exception as e:
+            logger.warning("Could not fetch distinct books from Chroma: %s", e)
+            return []
+
     def query(
         self,
         query_embedding: List[float],

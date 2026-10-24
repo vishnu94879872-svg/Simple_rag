@@ -20,6 +20,14 @@ class BookRAGPipeline:
         self.retrieval_engine = retrieval_engine or RetrievalEngine()
         self.generator = generator or AnswerGenerator()
 
+    def reload_bm25(self) -> None:
+        """Reload BM25 store to reflect newly ingested documents."""
+        self.retrieval_engine.reload_bm25()
+
+    def get_distinct_books(self) -> List[str]:
+        """Fetch all indexed book titles across stores."""
+        return self.retrieval_engine.get_distinct_books()
+
     def query(
         self,
         question: str,

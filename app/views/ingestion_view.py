@@ -43,6 +43,7 @@ def render_ingestion_monitor():
                 with st.status(f"Ingesting '{uploaded_file.name}' through monitored pipeline...", expanded=True) as status:
                     st.write("Running structural pre-flight inspection...")
                     job = ingestion_monitor.run_monitored_ingestion(save_path)
+                    st.cache_resource.clear()
                     if job.overall_status == StageStatus.COMPLETED:
                         status.update(label=f"Successfully indexed '{uploaded_file.name}'", state="complete")
                     elif job.overall_status == StageStatus.WARNING:
@@ -51,25 +52,30 @@ def render_ingestion_monitor():
                         status.update(label=f"Ingestion failed for '{uploaded_file.name}'", state="error")
                 st.rerun()
 
+    # Ingest / Sync existing book from data/books/
+    book_files = list(Path(settings.data_dir / "books").glob("*.pdf")) if (settings.data_dir / "books").exists() else []
+    if book_files:
+        with st.expander("Ingest or re-index an existing PDF in data/books/", expanded=False):
+            col_pdf, col_action = st.columns([2.4, 1], gap="medium", vertical_alignment="bottom")
+            with col_pdf:
+                selected_pdf = st.selectbox("Select document to ingest or re-index:", options=[b.name for b in book_files], key="existing_book_select", width="stretch")
+            with col_action:
+                run_diagnostics = st.button("Ingest selected PDF", key="btn_ingest_existing", width="stretch")
+            if run_diagnostics:
+                target = settings.data_dir / "books" / selected_pdf
+                with st.status(f"Ingesting '{selected_pdf}' into storage...", expanded=True) as status:
+                    job = ingestion_monitor.run_monitored_ingestion(target)
+                    st.cache_resource.clear()
+                    if job.overall_status == StageStatus.COMPLETED:
+                        status.update(label=f"Successfully indexed '{selected_pdf}'", state="complete")
+                    elif job.overall_status == StageStatus.WARNING:
+                        status.update(label=f"Ingested '{selected_pdf}' with warnings", state="complete")
+                    else:
+                        status.update(label=f"Ingestion failed for '{selected_pdf}'", state="error")
+                st.rerun()
+
     # List recorded jobs
     jobs = storage.list_jobs(limit=50)
-
-    # Re-index existing files if no jobs yet
-    book_files = list(Path(settings.data_dir / "books").glob("*.pdf")) if (settings.data_dir / "books").exists() else []
-
-    if not jobs and book_files:
-        st.info("Found existing PDF books in `data/books/` that have not yet been evaluated by the Ingestion Monitor.")
-        col_pdf, col_action = st.columns([2.4, 1], gap="medium", vertical_alignment="bottom")
-        with col_pdf:
-            selected_pdf = st.selectbox("Select document to diagnose:", options=[b.name for b in book_files], width="stretch")
-        with col_action:
-            run_diagnostics = st.button("Run diagnostics on selected PDF", width="stretch")
-        if run_diagnostics:
-            target = settings.data_dir / "books" / selected_pdf
-            with st.spinner("Analyzing document structure..."):
-                job = ingestion_monitor.run_monitored_ingestion(target)
-            st.success(f"Diagnostics complete for {selected_pdf}!")
-            st.rerun()
 
     if not jobs:
         empty_state(

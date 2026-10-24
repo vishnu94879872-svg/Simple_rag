@@ -50,10 +50,10 @@ class SupabaseBM25Store:
 
     def _save(self) -> None:
         """Serialize index to JSON and upsert into rag_bm25_index."""
+        # Only save documents dictionary; doc_ids and tokenized_corpus are derived on load.
+        # This reduces Supabase payload size by >60% and avoids 413 HTTP payload limits.
         payload = {
             "documents": self._documents,
-            "doc_ids": self._doc_ids,
-            "tokenized_corpus": self._tokenized_corpus,
         }
         try:
             self._client.table("rag_bm25_index").upsert(
@@ -84,25 +84,48 @@ class SupabaseBM25Store:
 
         payload = resp.data.get("payload", {})
         self._documents = payload.get("documents", {})
-        self._doc_ids = payload.get("doc_ids", [])
-        self._tokenized_corpus = payload.get("tokenized_corpus", [])
+        self._doc_ids = list(self._documents.keys())
+        self._tokenized_corpus = [
+            _tokenize(self._documents[cid]["content"]) for cid in self._doc_ids
+        ]
 
         if self._tokenized_corpus:
             self.bm25 = BM25Okapi(self._tokenized_corpus)
+        else:
+            self.bm25 = None
 
         logger.info("Loaded BM25 index with %d documents from Supabase", len(self._documents))
         return True
+
+    def reload(self) -> bool:
+        """Force reload BM25 index from Supabase."""
+        return self._load()
 
     # ------------------------------------------------------------------
     # Public API (mirrors BM25Store)
     # ------------------------------------------------------------------
 
     def count(self) -> int:
+        if not self._documents:
+            self._load()
         return len(self._documents)
+
+    def get_distinct_books(self) -> List[str]:
+        """Return list of distinct book titles in this BM25 index."""
+        if not self._documents:
+            self._load()
+        return sorted(list({
+            doc.get("metadata", {}).get("book_title")
+            for doc in self._documents.values()
+            if doc.get("metadata", {}).get("book_title")
+        }))
 
     def upsert_chunks(self, chunks: List[Chunk]) -> int:
         if not chunks:
             return 0
+
+        # Always reload existing index from Supabase first so multiple books merge cleanly
+        self._load()
 
         for chunk in chunks:
             self._documents[chunk.chunk_id] = {
@@ -117,7 +140,7 @@ class SupabaseBM25Store:
         ]
         self.bm25 = BM25Okapi(self._tokenized_corpus) if self._tokenized_corpus else None
         self._save()
-        logger.info("Upserted %d chunks into Supabase BM25 store", len(chunks))
+        logger.info("Upserted %d chunks into Supabase BM25 store (total: %d)", len(chunks), len(self._documents))
         return len(chunks)
 
     def search(
@@ -127,7 +150,9 @@ class SupabaseBM25Store:
         where_filter: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         if not self.bm25 or not self._doc_ids:
-            return []
+            self._load()
+            if not self.bm25 or not self._doc_ids:
+                return []
 
         tokens = _tokenize(query)
         if not tokens:
@@ -158,6 +183,7 @@ class SupabaseBM25Store:
         return results[:top_k]
 
     def delete_by_book_title(self, book_title: str) -> int:
+        self._load()
         to_remove = [
             cid for cid, doc in self._documents.items()
             if doc.get("metadata", {}).get("book_title") == book_title

@@ -39,9 +39,21 @@ class BM25Store:
 
         self.load()
 
+    def reload(self) -> bool:
+        """Reload BM25 index from disk."""
+        return self.load()
+
     def count(self) -> int:
         """Return number of documents in BM25 index."""
         return len(self._documents)
+
+    def get_distinct_books(self) -> List[str]:
+        """Return list of distinct book titles in this BM25 index."""
+        return sorted(list({
+            doc.get("metadata", {}).get("book_title")
+            for doc in self._documents.values()
+            if doc.get("metadata", {}).get("book_title")
+        }))
 
     def upsert_chunks(self, chunks: List[Chunk]) -> int:
         """

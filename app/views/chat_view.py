@@ -43,13 +43,29 @@ def _render_chunks(chunks) -> None:
 
 def render_chat(pipeline):
     """Render the Chat interface."""
-    page_header(
-        "Module · Conversational QA",
-        "Book Tutor",
-        "Ask natural-language questions about indexed books. Every answer is grounded with chapter and page citations, then audited for grounding.",
-    )
+    col_hdr, col_btn = st.columns([4, 1], vertical_alignment="bottom")
+    with col_hdr:
+        page_header(
+            "Module · Conversational QA",
+            "Book Tutor",
+            "Ask natural-language questions about indexed books. Every answer is grounded with chapter and page citations, then audited for grounding.",
+        )
+    with col_btn:
+        if st.button("Clear Conversation", type="secondary", width="stretch"):
+            st.session_state.messages = []
+            st.rerun()
 
-    c_strat, c_topk, c_type, c_chap = st.columns([1.5, 1, 1, 1.5])
+    distinct_books = pipeline.get_distinct_books()
+    book_options = ["All Books"] + distinct_books
+
+    c_book, c_strat, c_topk, c_type, c_chap = st.columns([1.6, 1.2, 0.9, 0.9, 1.2])
+    with c_book:
+        selected_book = st.selectbox(
+            "Book focus",
+            options=book_options,
+            index=0,
+            help="Select a specific book to focus questions, or 'All Books' for multi-book search.",
+        )
     with c_strat:
         strategy = st.selectbox(
             "Retrieval strategy",
@@ -69,19 +85,36 @@ def render_chat(pipeline):
 
     pending_prompt = st.session_state.pop("pending_prompt", None)
 
+    # Dynamic suggestions based on selected book or all available books
+    active_suggestions = []
+    if selected_book == "Sample Quantum" or (selected_book == "All Books" and "Sample Quantum" in distinct_books):
+        active_suggestions.append(("Qubit definition", "What is a qubit and how is it defined?"))
+        active_suggestions.append(("Quantum Superposition", "Explain quantum superposition with an example."))
+    if selected_book == "Anthropic Ai Rag Test" or (selected_book == "All Books" and "Anthropic Ai Rag Test" in distinct_books):
+        active_suggestions.append(("Constitutional AI", "What is Constitutional AI?"))
+        active_suggestions.append(("RAG Pipeline Stages", "What are the main stages of a RAG pipeline?"))
+    if selected_book == "Animal Knowledge Base Rag Test 10 Pages" or (selected_book == "All Books" and "Animal Knowledge Base Rag Test 10 Pages" in distinct_books):
+        active_suggestions.append(("Animal Survival", "How do animals survive and adapt to their environments?"))
+        active_suggestions.append(("Metamorphosis", "Explain the process of animal metamorphosis."))
+
+    if not active_suggestions:
+        active_suggestions = SUGGESTED_QUESTIONS
+
     if not st.session_state.messages and pending_prompt is None:
         st.markdown('<div class="br-nav-label">Suggested questions</div>', unsafe_allow_html=True)
-        suggestion_cols = st.columns(len(SUGGESTED_QUESTIONS))
-        for index, (col, (label, question)) in enumerate(zip(suggestion_cols, SUGGESTED_QUESTIONS)):
+        display_suggestions = active_suggestions[:4]
+        suggestion_cols = st.columns(len(display_suggestions))
+        for index, (col, (label, question)) in enumerate(zip(suggestion_cols, display_suggestions)):
             with col:
                 if st.button(label, key=f"suggested_q_{index}", width="stretch"):
                     st.session_state["pending_prompt"] = question
 
         pending_prompt = st.session_state.pop("pending_prompt", None)
         if pending_prompt is None:
+            focus_msg = f"currently tutoring on '{selected_book}'" if selected_book != "All Books" else "searching across all indexed books"
             empty_state(
                 "Grounded answers, cited to the page",
-                "Pick a suggestion above or ask your own question. Every response carries an audit verdict and a trace ID you can replay in the Trace Viewer.",
+                f"Pick a suggestion above or ask your own question ({focus_msg}). Every response carries an audit verdict and a trace ID.",
                 mark="◇",
             )
 
@@ -105,6 +138,8 @@ def render_chat(pipeline):
         st.markdown(prompt)
 
     filters = {}
+    if selected_book != "All Books":
+        filters["book_title"] = selected_book
     if type_filter != "All":
         filters["type"] = type_filter
     if chapter_filter:

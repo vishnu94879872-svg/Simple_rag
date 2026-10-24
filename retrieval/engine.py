@@ -45,6 +45,20 @@ class RetrievalEngine:
         self.reranker = reranker or BGEReranker()
         self.expander = expander or ContextExpander()
 
+    def reload_bm25(self) -> None:
+        """Reload the underlying BM25 store from disk or cloud."""
+        if hasattr(self.bm25_store, "reload"):
+            self.bm25_store.reload()
+
+    def get_distinct_books(self) -> List[str]:
+        """Return distinct book titles available in vector and sparse stores."""
+        books = set()
+        if hasattr(self.vector_store, "get_distinct_books"):
+            books.update(self.vector_store.get_distinct_books())
+        if hasattr(self.bm25_store, "get_distinct_books"):
+            books.update(self.bm25_store.get_distinct_books())
+        return sorted(list(books))
+
     def retrieve(
         self,
         query: str,
