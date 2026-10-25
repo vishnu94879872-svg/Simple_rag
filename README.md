@@ -25,7 +25,7 @@ $$\text{PDF Ingestion} \rightarrow \text{Parsing} \rightarrow \text{Chunking} \r
                 ┌────────────────────────┴────────────────────────┐
                 ▼                                                 ▼
       [Dense ChromaDB Vectors]                         [Sparse BM25 Index]
-      (BAAI/bge-small-en-v1.5)                         (Tokenized Okapi)
+      (Superlinked SIE: all-MiniLM-L6-v2)              (Tokenized Okapi)
                 │                                                 │
                 └────────────────────────┬────────────────────────┘
                                          ▼
@@ -99,15 +99,22 @@ cp .env.example .env
 ```
 Run this from the project root: `.env.example` sits beside `config.py`, and the copied `.env` must stay in that same directory (not inside `app/`). The real `.env` is gitignored, while `.env.example` is tracked.
 
-Edit `.env` to configure your LLM provider (`openai`, `ollama`, or offline mode). If you do not have an API key yet, skip this step entirely — an absent `.env` runs the deterministic offline fallback:
+The app uses local Ollama by default and does not load an OpenAI API key. Start Ollama and make sure `hf.co/nvidia/NVIDIA-Nemotron-3.5-Bolt-E4B-4GB:Q4_K_M` is available locally. Copy `.env.example` to `.env` only if you need to change the local model or endpoint:
 ```env
-LLM_PROVIDER=openai
-LLM_API_KEY=your_api_key_here
-LLM_MODEL=gpt-4o-mini
-EMBEDDING_MODEL=BAAI/bge-small-en-v1.5
+LLM_PROVIDER=ollama
+LLM_BASE_URL=http://127.0.0.1:11434/v1
+LLM_MODEL=hf.co/nvidia/NVIDIA-Nemotron-3.5-Bolt-E4B-4GB:Q4_K_M
+VISION_MODEL=phi4-mini:latest
+EMBEDDING_BACKEND=sie
+EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+SIE_EMBEDDINGS_URL=http://127.0.0.1:8080/v1/embeddings
 RERANKER_MODEL=BAAI/bge-reranker-base
 ```
-*(Note: If `LLM_API_KEY` is omitted, BookRAG automatically runs in deterministic offline fallback mode so all tests and retrieval workflows operate reliably without external API costs).*
+If Ollama is unavailable, answer generation falls back to the app's deterministic local synthesis; table summaries and image captions use local heuristics.
+
+SIE must be running and expose the OpenAI-compatible embeddings endpoint at the configured URL. BookRAG sends both document chunks and search queries to SIE with the same model and normalizes returned vectors. If you use a different endpoint or model, update these settings together. The `local` backend remains available with `EMBEDDING_BACKEND=local` and a SentenceTransformers model name. The chat model remains local through Ollama; it does not use the OpenAI API.
+
+**Rebuild the vector index after switching embedding backends or models.** Embeddings from different models are not interchangeable, even when they have the same vector width. Re-ingest the PDFs from the Ingestion Monitor so Chroma contains vectors created by SIE before using dense or hybrid search.
 
 ### 3. Optional: Supabase-backed observability
 

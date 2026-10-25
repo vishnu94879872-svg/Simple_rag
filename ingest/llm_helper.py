@@ -26,10 +26,13 @@ class LLMHelper:
         self.vision_model = settings.vision_model
         self._client = None
 
-        if self.api_key and self.provider != "mock":
+        if self.provider == "ollama" or (self.api_key and self.provider != "mock"):
             try:
                 from openai import OpenAI
-                self._client = OpenAI(api_key=self.api_key, base_url=self.base_url)
+                # Ollama's OpenAI-compatible endpoint is local and does not need
+                # an OpenAI credential; the SDK requires a non-empty placeholder.
+                client_key = self.api_key or ("ollama" if self.provider == "ollama" else "")
+                self._client = OpenAI(api_key=client_key, base_url=self.base_url)
             except Exception as e:
                 logger.warning("Could not initialize OpenAI client: %s. Using heuristic fallback.", e)
 

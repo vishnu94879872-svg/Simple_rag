@@ -118,7 +118,7 @@ def render_chunk_inspector():
                 st.markdown("**Target Chunk Size:** `1000 characters`")
             with c_cfg2:
                 st.markdown("**Chunk Overlap:** `150 characters`")
-                st.markdown("**Embedding Model:** `BAAI/bge-small-en-v1.5`")
+                st.markdown(f"**Embedding Model:** `{settings.embedding_model}` ({settings.embedding_backend})")
             with c_cfg3:
                 st.markdown(f"**Document ID:** `{selected_pdf_name}`")
                 st.markdown(f"**Total Chunks in Book:** `{len(all_chunks)}`")

@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BookRAG Reliability Lab — RAG Debugging, Evaluation &amp; Observability</title>
+  <meta name="description" content="A production-oriented RAG debugging, evaluation, and observability platform that traces the full pipeline from PDF ingestion to citation verification, with reproducible benchmarks and evidence-based failure diagnosis." />
+  <meta property="og:title" content="BookRAG Reliability Lab" />
+  <meta property="og:description" content="See exactly where your RAG pipeline breaks — hybrid retrieval, trace waterfalls, citation auditing, and reproducible evaluation in one dark dev console." />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2311141c'/%3E%3Crect x='1.5' y='1.5' width='61' height='61' rx='12.5' fill='none' stroke='%237c9bff' stroke-opacity='.45' stroke-width='3'/%3E%3Ctext x='32' y='41' font-family='monospace' font-size='24' font-weight='700' text-anchor='middle' fill='%23a8bbff'%3EBR%3C/text%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-head" id="site-head">
+    <div class="wrap head-row">
+      <a class="brand" href="#top" aria-label="BookRAG Reliability Lab — home">
+        <span class="brand-mark" aria-hidden="true">BR</span>
+        <span class="brand-text">
+          <span class="brand-name">BookRAG</span>
+          <span class="brand-sub">Reliability Lab</span>
+        </span>
+      </a>
+      <nav class="site-nav" aria-label="Primary">
+        <a href="#pipeline">Pipeline</a>
+        <a href="#modules">Modules</a>
+        <a href="#evidence">Evidence</a>
+        <a href="#storage">Storage</a>
+        <a href="#run">Run it</a>
+      </nav>
+      <a class="btn btn-ghost head-cta" href="https://github.com/vishnu94879872-svg/Simple_rag" target="_blank" rel="noopener noreferrer">GitHub</a>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- ============================== HERO ============================== -->
+    <section class="hero" id="top">
+      <div class="hero-bg" aria-hidden="true"></div>
+      <div class="wrap hero-grid">
+        <div class="hero-copy reveal">
+          <p class="overline">RAG Engineering Platform</p>
+          <h1>See exactly where your RAG pipeline breaks.</h1>
+          <p class="lead">
+            BookRAG Reliability Lab is a production-oriented debugging, evaluation, and
+            observability platform that traces every request from PDF ingestion through
+            hybrid retrieval and reranking to citation verification — with reproducible
+            benchmarks and evidence-based failure diagnosis.
+          </p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="#run">Run it locally</a>
+            <a class="btn btn-ghost" href="#evidence">Read the evidence</a>
+          </div>
+          <dl class="hero-stats">
+            <div class="stat"><dt>Indexed chunks</dt><dd>910</dd></div>
+            <div class="stat"><dt>Indexed pages</dt><dd>104</dd></div>
+            <div class="stat"><dt>Benchmark questions</dt><dd>22</dd></div>
+            <div class="stat"><dt>Reliability tests</dt><dd>54</dd></div>
+          </dl>
+        </div>
+        <figure class="hero-shot reveal" style="--delay:.12s">
+          <img src="assets/console-overview.png" alt="BookRAG observability dashboard showing indexed documents, chunks, trace metrics, and pipeline health" loading="eager" />
+          <figcaption>The observability dashboard — every metric derived from authoritative stores, no hardcoded values.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- ============================ PIPELINE ============================ -->
+    <section class="section" id="pipeline">
+      <div class="wrap">
+        <header class="section-head reveal">
+          <p class="overline">Instrumented end to end</p>
+          <h2>One pipeline, ten instrumented stages</h2>
+          <p class="section-lede">
+            Every stage writes real telemetry: microsecond timestamps, durations, payloads,
+            and success or failure states. No simulated records — if a metric cannot be
+            derived from an authoritative store, the dashboard says so.
+          </p>
+        </header>
+
+        <ol class="flow reveal" aria-label="Pipeline stages">
+          <li class="flow-group" data-group="ingest">
+            <p class="flow-group-label">Ingest</p>
+            <ul>
+              <li><span class="flow-num">01</span><strong>PDF parsing</strong><em>Heading hierarchy, block classification</em></li>
+              <li><span class="flow-num">02</span><strong>Chunking</strong><em>Sentence-safe splitter, quality heuristics</em></li>
+              <li><span class="flow-num">03</span><strong>Embedding</strong><em>BAAI/bge-small-en-v1.5</em></li>
+              <li><span class="flow-num">04</span><strong>Indexing</strong><em>ChromaDB + BM25 in parallel</em></li>
+            </ul>
+          </li>
+          <li class="flow-group" data-group="retrieve">
+            <p class="flow-group-label">Retrieve</p>
+            <ul>
+              <li><span class="flow-num">05</span><strong>Hybrid search</strong><em>Dense vectors + Okapi BM25, RRF fusion</em></li>
+              <li><span class="flow-num">06</span><strong>Neural rerank</strong><em>bge-reranker cross-encoder</em></li>
+              <li><span class="flow-num">07</span><strong>Context build</strong><em>Bounded prompt, source delimiters</em></li>
+            </ul>
+          </li>
+          <li class="flow-group" data-group="audit">
+            <p class="flow-group-label">Audit</p>
+            <ul>
+              <li><span class="flow-num">08</span><strong>Synthesis</strong><em>LLM or deterministic fallback tutor</em></li>
+              <li><span class="flow-num">09</span><strong>Citation check</strong><em>Claim-by-claim verification</em></li>
+              <li><span class="flow-num">10</span><strong>Evaluation</strong><em>Recall@k, MRR, groundedness</em></li>
+            </ul>
+          </li>
+        </ol>
+
+        <div class="waterfall reveal">
+          <div class="waterfall-head">
+            <h3>Trace waterfall</h3>
+            <p>Each request produces a Gantt-style waterfall with per-stage latency and expandable payload inspectors.</p>
+          </div>
+          <ol class="stages">
+            <li><span class="stage-name">Request validation</span><span class="pill pill-ok">verified</span></li>
+            <li><span class="stage-name">Query processing</span><span class="pill pill-ok">verified</span></li>
+            <li><span class="stage-name">Candidate retrieval</span><span class="pill pill-ok">verified</span></li>
+            <li><span class="stage-name">Neural reranking</span><span class="pill pill-skip">skippable</span></li>
+            <li><span class="stage-name">Context construction</span><span class="pill pill-ok">verified</span></li>
+            <li><span class="stage-name">LLM generation</span><span class="pill pill-ok">verified</span></li>
+            <li><span class="stage-name">Citation verification</span><span class="pill pill-ok">verified</span></li>
+            <li><span class="stage-name">Response delivery</span><span class="pill pill-ok">verified</span></li>
+          </ol>
+          <p class="waterfall-note">
+            Reranking is explicitly recorded as <code>Skipped</code> with its bypass rationale when the
+            strategy is <code>vector_only</code>, <code>bm25_only</code>, or <code>hybrid_rrf</code> — the trace
+            reflects what actually ran.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================ MODULES ============================ -->
+    <section class="section section-alt" id="modules">
+      <div class="wrap">
+        <header class="section-head reveal">
+          <p class="overline">The console</p>
+          <h2>Eleven modules, one debugging surface</h2>
+          <p class="section-lede">
+            A dark-mode developer console where pre-generation retrieval debugging,
+            prompt tracing, and failure investigation live side by side.
+          </p>
+        </header>
+
+        <ul class="module-grid">
+          <li class="module reveal"><span class="module-code">A</span><h3>Observability Dashboard</h3><p>Real-time production metrics: chunks, pages, failure rates, and honest latency percentiles that refuse to masquerade on small samples.</p></li>
+          <li class="module reveal"><span class="module-code">B</span><h3>Ingestion Diagnostics</h3><p>Stage tracking with duration timers and heuristic detection of unreadable or scanned pages.</p></li>
+          <li class="module reveal"><span class="module-code">C</span><h3>PDF &amp; Chunk Inspector</h3><p>Two-panel ground truth: original page raster beside extracted text, chunk quality flags, and boundary neighbors.</p></li>
+          <li class="module reveal"><span class="module-code">D</span><h3>Retrieval Playground</h3><p>Test vector, BM25, hybrid RRF, and reranked strategies pre-generation, with candidate diffs.</p></li>
+          <li class="module reveal"><span class="module-code">E</span><h3>Prompt &amp; LLM Trace Viewer</h3><p>Waterfall tracer with correlation IDs, per-stage latency, secret masking, and cost estimation.</p></li>
+          <li class="module reveal"><span class="module-code">F</span><h3>Citation Verification</h3><p>Deterministic auditing that checks whether cited chapter and page references actually exist in retrieved context.</p></li>
+          <li class="module reveal"><span class="module-code">G</span><h3>Evaluation Lab</h3><p>Repeatable benchmarks computing Recall@k, Precision@k, MRR, groundedness, and CSV dataset import/export.</p></li>
+          <li class="module reveal"><span class="module-code">H</span><h3>Root-Cause Assistant</h3><p>A 10-stage failure classification engine that outputs evidence, likely causes, fixes, and confirmation tests.</p></li>
+          <li class="module reveal"><span class="module-code">I</span><h3>Chunking Workbench</h3><p>Isolated, non-destructive sandboxes comparing chunking strategies and top-k retrieval matrices.</p></li>
+          <li class="module reveal"><span class="module-code">S</span><h3>Security &amp; Threat Model</h3><p>Masked key management, prompt-injection boundaries, and storage backend health.</p></li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============================ EVIDENCE ============================ -->
+    <section class="section" id="evidence">
+      <div class="wrap">
+        <header class="section-head reveal">
+          <p class="overline">Measurement first</p>
+          <h2>Claims backed by recorded runs</h2>
+          <p class="section-lede">
+            No improvement is reported unless supported by data. The benchmark below compares
+            a reranked strategy against a pure vector baseline on the same 22-question dataset.
+          </p>
+        </header>
+
+        <div class="evidence-grid">
+          <div class="table-card reveal">
+            <div class="table-card-head">
+              <h3>Benchmark · quantum_bench v2.0</h3>
+              <p class="mono">eval_3df8c3b8 vs eval_7bcda3d6 · k = 5</p>
+            </div>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr><th scope="col">Metric</th><th scope="col">vector_only</th><th scope="col">reranked</th><th scope="col">Verdict</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>Recall@5</td><td>100.0%</td><td>100.0%</td><td><span class="pill pill-neutral">neutral</span></td></tr>
+                  <tr><td>Precision@5</td><td>20.0%</td><td>20.0%</td><td><span class="pill pill-neutral">neutral</span></td></tr>
+                  <tr><td>MRR</td><td>1.000</td><td>1.000</td><td><span class="pill pill-neutral">neutral</span></td></tr>
+                  <tr><td>Answer correctness</td><td>55.0%</td><td>55.0%</td><td><span class="pill pill-neutral">neutral</span></td></tr>
+                  <tr><td>Citation accuracy</td><td>100.0%</td><td>100.0%</td><td><span class="pill pill-neutral">neutral</span></td></tr>
+                  <tr><td>Groundedness</td><td>100.0%</td><td>100.0%</td><td><span class="pill pill-neutral">neutral</span></td></tr>
+                  <tr><td>Abstention quality</td><td>100.0%</td><td>100.0%</td><td><span class="pill pill-neutral">neutral</span></td></tr>
+                  <tr class="row-warn"><td>Average latency</td><td>63.7 ms</td><td>14 470.3 ms</td><td><span class="pill pill-warn">slower</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="table-note">
+              Identical hit-rate on this compact benchmark, but the CPU cross-encoder adds +14.4 s
+              per query — so <code>vector_only</code> or <code>hybrid_rrf</code> wins in low-latency CPU
+              deployments. The comparator reports the cost honestly.
+            </p>
+          </div>
+
+          <figure class="shot reveal" style="--delay:.1s">
+            <img src="assets/console-trace-viewer.png" alt="Trace viewer waterfall showing pipeline stage durations and correlation IDs" loading="lazy" />
+            <figcaption>Trace viewer — per-stage timing with correlation IDs.</figcaption>
+          </figure>
+        </div>
+
+        <div class="shots-duo">
+          <figure class="shot reveal">
+            <img src="assets/console-chunk-inspector.png" alt="Chunk Inspector comparing the original PDF page with extracted chunk diagnostics" loading="lazy" />
+            <figcaption>Chunk Inspector — page raster beside chunk diagnostics and quality flags.</figcaption>
+          </figure>
+          <figure class="shot reveal" style="--delay:.1s">
+            <img src="assets/console-inspector-scrolled.png" alt="Chunk Inspector scrolled through the chunk list with the PDF preview pinned beside it" loading="lazy" />
+            <figcaption>While the chunk list scrolls, the source page stays pinned for side-by-side comparison.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================ STORAGE ============================ -->
+    <section class="section section-alt" id="storage">
+      <div class="wrap storage-grid">
+        <div class="reveal">
+          <p class="overline">Telemetry persistence</p>
+          <h2>Local files by default, Supabase when you want it</h2>
+          <p class="section-lede">
+            All traces, evaluation runs, and investigations persist as JSON under
+            <code>data/observability/</code>. Add a Supabase URL and service-role key and the
+            platform switches automatically — the key stays server-side and never reaches the browser.
+          </p>
+        </div>
+        <ul class="storage-points reveal" style="--delay:.1s">
+          <li>
+            <h3>Explicit degradation</h3>
+            <p>If a remote read or write fails, the adapter logs the error, marks storage degraded, and serves that operation from local files. Failures are loud, never silent.</p>
+          </li>
+          <li>
+            <h3>Backfill when healthy</h3>
+            <p>Records written while offline are pushed to Supabase in one pass once the connection recovers — and the backfill fails loudly if any upsert is rejected.</p>
+          </li>
+          <li>
+            <h3>One table, JSONB payloads</h3>
+            <p>Traces, benchmarks, experiments, and investigations share a single <code>observability_records</code> table keyed by kind and record ID.</p>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============================== RUN ============================== -->
+    <section class="section" id="run">
+      <div class="wrap">
+        <header class="section-head reveal">
+          <p class="overline">Get it running</p>
+          <h2>From clone to console in minutes</h2>
+          <p class="section-lede">
+            Python 3.10+, a <code>requirements.txt</code> install, and one command. No API key
+            required — without one, the platform runs a deterministic offline tutor so every
+            workflow operates without external costs.
+          </p>
+        </header>
+
+        <div class="run-grid">
+          <div class="code-card reveal">
+            <div class="code-head"><h3>Install &amp; launch</h3><button class="copy-btn" type="button" data-copy="install">Copy</button></div>
+            <pre id="code-install"><code># from the project root
+pip install -r requirements.txt
+cp .env.example .env   # optional — offline fallback runs without it
+
+streamlit run app/streamlit_app.py
+# → http://localhost:8501</code></pre>
+          </div>
+          <div class="code-card reveal" style="--delay:.08s">
+            <div class="code-head"><h3>Verify reliability</h3><button class="copy-btn" type="button" data-copy="verify">Copy</button></div>
+            <pre id="code-verify"><code># 54 tests, local backend, temp telemetry dir
+python -m pytest tests/ -q
+
+# command-line Hit-Rate@5 benchmark
+python eval.py</code></pre>
+          </div>
+          <div class="code-card reveal" style="--delay:.16s">
+            <div class="code-head"><h3>Optional: Supabase telemetry</h3><button class="copy-btn" type="button" data-copy="supa">Copy</button></div>
+            <pre id="code-supa"><code># 1) run scripts/supabase_schema.sql in the SQL editor
+# 2) add to .env
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_KEY=your_service_role_key_here
+STORAGE_BACKEND=auto</code></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-foot">
+    <div class="wrap foot-row">
+      <a class="brand brand-sm" href="#top" aria-label="Back to top">
+        <span class="brand-mark" aria-hidden="true">BR</span>
+        <span class="brand-text"><span class="brand-name">BookRAG</span><span class="brand-sub">Reliability Lab</span></span>
+      </a>
+      <p class="foot-flow mono" aria-hidden="true">INGEST → RETRIEVE → RERANK → AUDIT</p>
+      <a class="foot-link" href="https://github.com/vishnu94879872-svg/Simple_rag" target="_blank" rel="noopener noreferrer">github.com/vishnu94879872-svg/Simple_rag</a>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

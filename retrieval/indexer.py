@@ -45,7 +45,10 @@ class BookIndexer:
                 self.vector_store.delete_by_book_title(bt)
                 self.bm25_store.delete_by_book_title(bt)
 
-        logger.info("Computing dense embeddings for %d chunks using %s...", len(chunks), self.embedding_manager.model_name)
+        logger.info(
+            "Computing dense embeddings for %d chunks using %s (%s)...",
+            len(chunks), self.embedding_manager.model_name, self.embedding_manager.backend,
+        )
         texts_to_embed = [chunk.content for chunk in chunks]
         embeddings = self.embedding_manager.embed_documents(texts_to_embed)
 

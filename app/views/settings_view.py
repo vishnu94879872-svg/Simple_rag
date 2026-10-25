@@ -131,11 +131,13 @@ def render_settings(pipeline):
             st.text_input("LLM model", value=settings.llm_model, disabled=True)
             st.text_input("Vision model", value=settings.vision_model, disabled=True)
         with c2:
+            st.text_input("Embedding backend", value=settings.embedding_backend, disabled=True)
             st.text_input("Embedding model", value=settings.embedding_model, disabled=True)
             st.text_input("Reranker model", value=settings.reranker_model, disabled=True)
-            key_raw = settings.llm_api_key
-            masked_key = f"{key_raw[:4]}...{key_raw[-4:]}" if len(key_raw) > 8 else ("Not set · offline fallback" if not key_raw else "********")
-            st.text_input("API key status", value=masked_key, disabled=True, help="API keys are never displayed in plaintext.")
+            if settings.embedding_backend == "sie":
+                st.text_input("SIE embeddings URL", value=settings.sie_embeddings_url, disabled=True)
+            auth_status = "Not required · local Ollama" if settings.llm_provider == "ollama" else "No API key configured"
+            st.text_input("LLM authentication", value=auth_status, disabled=True)
 
         st.divider()
         st.markdown("### Storage paths")

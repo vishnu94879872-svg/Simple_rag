@@ -16,6 +16,9 @@ if sys.platform == "win32":
 
 # Load environment variables from .env file if available
 load_dotenv()
+# This project runs its chat model locally; discard any stale OpenAI key from
+# the app process so it cannot be reused by this configuration.
+os.environ.pop("LLM_API_KEY", None)
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -23,14 +26,18 @@ class Settings(BaseModel):
     """Application settings and paths."""
     
     # Provider & Model configurations
-    llm_provider: str = Field(default_factory=lambda: os.getenv("LLM_PROVIDER", "openai"))
-    llm_api_key: str = Field(default_factory=lambda: os.getenv("LLM_API_KEY", ""))
-    llm_base_url: str = Field(default_factory=lambda: os.getenv("LLM_BASE_URL", "https://api.openai.com/v1"))
-    llm_model: str = Field(default_factory=lambda: os.getenv("LLM_MODEL", "gpt-4o-mini"))
-    vision_model: str = Field(default_factory=lambda: os.getenv("VISION_MODEL", "gpt-4o-mini"))
+    llm_provider: str = Field(default_factory=lambda: os.getenv("LLM_PROVIDER", "ollama").strip().lower())
+    # This app is configured for a local Ollama runtime; it must not read or reuse
+    # an OpenAI key from the process environment.
+    llm_api_key: str = ""
+    llm_base_url: str = Field(default_factory=lambda: os.getenv("LLM_BASE_URL", "http://127.0.0.1:11434/v1").strip())
+    llm_model: str = Field(default_factory=lambda: os.getenv("LLM_MODEL", "phi4-mini:latest"))
+    vision_model: str = Field(default_factory=lambda: os.getenv("VISION_MODEL", "phi4-mini:latest"))
     
     # Embeddings & Reranker
-    embedding_model: str = Field(default_factory=lambda: os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5"))
+    embedding_backend: str = Field(default_factory=lambda: os.getenv("EMBEDDING_BACKEND", "sie").strip().lower())
+    embedding_model: str = Field(default_factory=lambda: os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2"))
+    sie_embeddings_url: str = Field(default_factory=lambda: os.getenv("SIE_EMBEDDINGS_URL", "http://127.0.0.1:8080/v1/embeddings").strip())
     reranker_model: str = Field(default_factory=lambda: os.getenv("RERANKER_MODEL", "BAAI/bge-reranker-base"))
     
     # Storage directories
