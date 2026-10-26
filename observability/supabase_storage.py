@@ -10,6 +10,7 @@ is unreachable, and every fallback is logged plus surfaced through
 import datetime
 import logging
 import threading
+import time
 from typing import Any, Callable, Dict, List, Optional, TypeVar
 from urllib.parse import urlparse
 
@@ -38,6 +39,22 @@ KIND_INVESTIGATION = "investigation"
 
 def _utc_now() -> str:
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+
+def _is_transient_network_error(exc: Exception) -> bool:
+    name = type(exc).__name__
+    msg = str(exc).lower()
+    return any(
+        term in name.lower() or term in msg
+        for term in (
+            "remoteprotocolerror",
+            "server disconnected",
+            "connectionreset",
+            "connecterror",
+            "timeout",
+            "broken pipe",
+        )
+    )
 
 
 class SupabaseObservabilityStorage:
@@ -74,6 +91,24 @@ class SupabaseObservabilityStorage:
         self._last_error: Optional[str] = None
         self._last_error_at: Optional[str] = None
 
+    def _execute_with_retry(self, fn: Callable[[], T], max_attempts: int = 3, initial_delay: float = 0.25) -> T:
+        delay = initial_delay
+        for attempt in range(max_attempts):
+            try:
+                return fn()
+            except Exception as exc:
+                if not _is_transient_network_error(exc) or attempt == max_attempts - 1:
+                    raise
+                logger.warning(
+                    "Transient error on Supabase operation (%s: %s). Retrying (attempt %d/%d)...",
+                    type(exc).__name__,
+                    exc,
+                    attempt + 1,
+                    max_attempts,
+                )
+                time.sleep(delay)
+                delay *= 2
+
     # ------------------------------------------------------------------ status
     def get_status(self) -> Dict[str, Any]:
         return {
@@ -92,9 +127,10 @@ class SupabaseObservabilityStorage:
     def check_connection(self) -> Dict[str, Any]:
         """Ping PostgREST so Settings can verify credentials and schema."""
         try:
-            self._client.table(self.table).select("record_id").limit(1).execute()
-            self._connected = True
-            self._degraded = False
+            self._execute_with_retry(
+                lambda: self._client.table(self.table).select("record_id").limit(1).execute()
+            )
+            self._mark_healthy()
         except Exception as exc:
             self._connected = False
             self._mark_degraded("connection_check", exc)
@@ -103,6 +139,8 @@ class SupabaseObservabilityStorage:
     def _mark_healthy(self) -> None:
         self._connected = True
         self._degraded = False
+        self._last_error = None
+        self._last_error_at = None
 
     def _mark_degraded(self, operation: str, exc: Exception) -> None:
         self._connected = False
@@ -124,36 +162,42 @@ class SupabaseObservabilityStorage:
     # ------------------------------------------------------------- primitives
     def _upsert(self, kind: str, record_id: str, payload: Dict[str, Any]) -> None:
         with self._write_lock:
-            self._client.table(self.table).upsert(
-                {
-                    "kind": kind,
-                    "record_id": record_id,
-                    "payload": payload,
-                    "updated_at": _utc_now(),
-                },
-                on_conflict="kind,record_id",
-            ).execute()
+            self._execute_with_retry(
+                lambda: self._client.table(self.table).upsert(
+                    {
+                        "kind": kind,
+                        "record_id": record_id,
+                        "payload": payload,
+                        "updated_at": _utc_now(),
+                    },
+                    on_conflict="kind,record_id",
+                ).execute()
+            )
 
     def _fetch(self, kind: str, record_id: str) -> Optional[Dict[str, Any]]:
-        response = (
-            self._client.table(self.table)
-            .select("payload")
-            .eq("kind", kind)
-            .eq("record_id", record_id)
-            .limit(1)
-            .execute()
+        response = self._execute_with_retry(
+            lambda: (
+                self._client.table(self.table)
+                .select("payload")
+                .eq("kind", kind)
+                .eq("record_id", record_id)
+                .limit(1)
+                .execute()
+            )
         )
         rows = response.data or []
         return rows[0]["payload"] if rows else None
 
     def _list(self, kind: str, limit: int) -> List[Dict[str, Any]]:
-        response = (
-            self._client.table(self.table)
-            .select("payload")
-            .eq("kind", kind)
-            .order("updated_at", desc=True)
-            .limit(limit)
-            .execute()
+        response = self._execute_with_retry(
+            lambda: (
+                self._client.table(self.table)
+                .select("payload")
+                .eq("kind", kind)
+                .order("updated_at", desc=True)
+                .limit(limit)
+                .execute()
+            )
         )
         return [row["payload"] for row in (response.data or [])]
 
@@ -169,12 +213,14 @@ class SupabaseObservabilityStorage:
             self._seed_attempted = True
 
     def _list_benchmark_names(self) -> List[str]:
-        response = (
-            self._client.table(self.table)
-            .select("record_id")
-            .eq("kind", KIND_BENCHMARK)
-            .order("updated_at", desc=True)
-            .execute()
+        response = self._execute_with_retry(
+            lambda: (
+                self._client.table(self.table)
+                .select("record_id")
+                .eq("kind", KIND_BENCHMARK)
+                .order("updated_at", desc=True)
+                .execute()
+            )
         )
         return [row["record_id"] for row in (response.data or [])]
 
