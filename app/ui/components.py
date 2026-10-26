@@ -106,14 +106,14 @@ def verdict(title: str, body: str, tone: str = "info") -> None:
     )
 
 
-def sidebar_brand() -> None:
+def sidebar_brand(title: str = "BookRAG", subtitle: str = "Reliability Lab", mark: str = "BR") -> None:
     st.markdown(
-        """
+        f"""
         <div class="br-brand">
-          <div class="br-brand-mark">BR</div>
+          <div class="br-brand-mark">{escape(mark)}</div>
           <div>
-            <div class="br-brand-name">BookRAG</div>
-            <div class="br-brand-sub">Reliability Lab</div>
+            <div class="br-brand-name">{escape(title)}</div>
+            <div class="br-brand-sub">{escape(subtitle)}</div>
           </div>
         </div>
         """,

@@ -22,6 +22,7 @@ from observability.models import (
     FailureInvestigationReport,
     IngestionJob,
     PipelineTrace,
+    SupportTicket,
 )
 from observability.storage import ObservabilityStorage, default_benchmark_items
 
@@ -35,6 +36,7 @@ KIND_EVAL_RUN = "eval_run"
 KIND_BENCHMARK = "benchmark"
 KIND_EXPERIMENT = "experiment"
 KIND_INVESTIGATION = "investigation"
+KIND_SUPPORT_TICKET = "support_ticket"
 
 
 def _utc_now() -> str:
@@ -360,14 +362,36 @@ class SupabaseObservabilityStorage:
 
         return self._call("list_investigations", primary, lambda: self._local.list_investigations(limit))
 
+    # -------------------------------------------------------- support tickets
+    def save_support_ticket(self, ticket: SupportTicket) -> None:
+        payload = ticket.model_dump(mode="json")
+        self._call(
+            "save_support_ticket",
+            lambda: self._upsert(KIND_SUPPORT_TICKET, ticket.ticket_id, payload),
+            lambda: self._local.save_support_ticket(ticket),
+        )
+
+    def get_support_ticket(self, ticket_id: str) -> Optional[SupportTicket]:
+        def primary() -> Optional[SupportTicket]:
+            payload = self._fetch(KIND_SUPPORT_TICKET, ticket_id)
+            return SupportTicket.model_validate(payload) if payload else None
+
+        return self._call(
+            "get_support_ticket",
+            primary,
+            lambda: self._local.get_support_ticket(ticket_id),
+        )
+
+    def list_support_tickets(self, limit: int = 50) -> List[SupportTicket]:
+        def primary() -> List[SupportTicket]:
+            return [SupportTicket.model_validate(row) for row in self._list(KIND_SUPPORT_TICKET, limit)]
+
+        return self._call("list_support_tickets", primary, lambda: self._local.list_support_tickets(limit))
+
     # ---------------------------------------------------------------- backfill
     def push_local_records(self) -> Dict[str, int]:
-        """Copy every locally persisted record into Supabase. Idempotent upserts.
-
-        This bypasses the fallback wrapper on purpose: a backfill must fail loudly
-        instead of quietly reporting success while writing to disk.
-        """
-        counts = {"jobs": 0, "traces": 0, "eval_runs": 0, "benchmarks": 0, "experiments": 0, "investigations": 0}
+        """Copy every locally persisted record into Supabase. Idempotent upserts."""
+        counts = {"jobs": 0, "traces": 0, "eval_runs": 0, "benchmarks": 0, "experiments": 0, "investigations": 0, "tickets": 0}
         try:
             for job in self._local.list_jobs(limit=10000):
                 self._upsert(KIND_JOB, job.job_id, job.model_dump(mode="json"))
@@ -388,6 +412,9 @@ class SupabaseObservabilityStorage:
             for report in self._local.list_investigations(limit=10000):
                 self._upsert(KIND_INVESTIGATION, report.investigation_id, report.model_dump(mode="json"))
                 counts["investigations"] += 1
+            for ticket in self._local.list_support_tickets(limit=10000):
+                self._upsert(KIND_SUPPORT_TICKET, ticket.ticket_id, ticket.model_dump(mode="json"))
+                counts["tickets"] += 1
         except Exception as exc:
             done = sum(counts.values())
             self._mark_degraded("push_local_records", exc)

@@ -224,3 +224,33 @@ def render_overview(pipeline):
             for j in jobs
         ]
         st.dataframe(job_summary, width="stretch", hide_index=True)
+
+    # --- User Support Tickets ---
+    st.divider()
+    st.markdown("### User Support & Problem Tickets")
+    try:
+        tickets = storage.list_support_tickets(limit=20)
+    except Exception:
+        tickets = []
+
+    if not tickets:
+        empty_state(
+            "No reported tickets yet",
+            "User reports submitted from the Reader Support page will appear here.",
+            mark="🛟",
+        )
+    else:
+        ticket_data = [
+            {
+                "Ticket ID": t.ticket_id,
+                "Time": t.timestamp[:16].replace("T", " ") if t.timestamp else "",
+                "Category": t.category,
+                "Book": t.book_title or "—",
+                "Description": t.description[:80] + ("…" if len(t.description) > 80 else ""),
+                "Contact": t.user_contact or "Anonymous",
+                "Status": t.status.upper(),
+            }
+            for t in tickets
+        ]
+        st.dataframe(ticket_data, width="stretch", hide_index=True)
+

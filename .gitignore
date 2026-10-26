@@ -43,7 +43,7 @@ data/chroma/
 data/bm25/
 data/parent_store/
 data/images/
-data/books/Class_*.pdf
+data/books/*.pdf
 data/observability/traces/
 data/observability/eval_runs/
 data/observability/experiments/

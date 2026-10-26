@@ -53,6 +53,10 @@ class Settings(BaseModel):
     supabase_table: str = Field(default_factory=lambda: os.getenv("SUPABASE_TABLE", "observability_records").strip())
     storage_backend: str = Field(default_factory=lambda: os.getenv("STORAGE_BACKEND", "auto").strip().lower())
 
+    # Admin portal authentication
+    admin_username: str = Field(default_factory=lambda: os.getenv("ADMIN_USERNAME", "admin").strip())
+    admin_password: str = Field(default_factory=lambda: os.getenv("ADMIN_PASSWORD", "admin123").strip())
+
     @property
     def supabase_configured(self) -> bool:
         if not self.supabase_url or not self.supabase_key:
