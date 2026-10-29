@@ -225,32 +225,111 @@ def render_overview(pipeline):
         ]
         st.dataframe(job_summary, width="stretch", hide_index=True)
 
-    # --- User Support Tickets ---
+    # --- User Support & Problem Ticket Desk ---
     st.divider()
     st.markdown("### User Support & Problem Tickets")
     try:
-        tickets = storage.list_support_tickets(limit=20)
+        all_tickets = storage.list_support_tickets(limit=100)
     except Exception:
-        tickets = []
+        all_tickets = []
 
-    if not tickets:
+    if not all_tickets:
         empty_state(
             "No reported tickets yet",
-            "User reports submitted from the Reader Support page will appear here.",
+            "User reports submitted from the Reader Support page will appear here for engineering triage.",
             mark="🛟",
         )
     else:
+        open_count = sum(1 for t in all_tickets if t.status == "open")
+        in_prog_count = sum(1 for t in all_tickets if t.status in ("in_progress", "investigating"))
+        resolved_count = sum(1 for t in all_tickets if t.status == "resolved")
+
+        tk_c1, tk_c2, tk_c3, tk_c4 = st.columns([1, 1, 1, 1.5])
+        with tk_c1:
+            st.metric("Open Reports", open_count, delta="Needs attention" if open_count > 0 else "All clear", delta_color="inverse" if open_count > 0 else "normal")
+        with tk_c2:
+            st.metric("In Progress", in_prog_count)
+        with tk_c3:
+            st.metric("Resolved", resolved_count, delta_color="normal")
+        with tk_c4:
+            ticket_filter_status = st.selectbox(
+                "Filter tickets by status",
+                options=["All Statuses", "open", "in_progress", "resolved"],
+                index=0,
+            )
+
+        filtered_tickets = all_tickets
+        if ticket_filter_status != "All Statuses":
+            filtered_tickets = [t for t in filtered_tickets if t.status == ticket_filter_status or (ticket_filter_status == "in_progress" and t.status == "investigating")]
+
         ticket_data = [
             {
                 "Ticket ID": t.ticket_id,
                 "Time": t.timestamp[:16].replace("T", " ") if t.timestamp else "",
                 "Category": t.category,
                 "Book": t.book_title or "—",
-                "Description": t.description[:80] + ("…" if len(t.description) > 80 else ""),
+                "Description": t.description[:75] + ("…" if len(t.description) > 75 else ""),
                 "Contact": t.user_contact or "Anonymous",
                 "Status": t.status.upper(),
             }
-            for t in tickets
+            for t in filtered_tickets
         ]
         st.dataframe(ticket_data, width="stretch", hide_index=True)
+
+        st.markdown("#### Ticket Details & Action Desk")
+        ticket_map = {t.ticket_id: t for t in filtered_tickets}
+        if filtered_tickets:
+            selected_ticket_id = st.selectbox(
+                "Select a ticket to review or resolve:",
+                options=[t.ticket_id for t in filtered_tickets],
+                format_func=lambda tid: f"{tid} — {ticket_map[tid].category} ({ticket_map[tid].status.upper()})",
+            )
+            sel_ticket = ticket_map[selected_ticket_id]
+
+            with st.container():
+                st.markdown(
+                    f"""
+                    <div style="background:var(--br-surface);border:1px solid var(--br-border);border-radius:10px;padding:16px;margin-top:8px;margin-bottom:12px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                            <span style="font-size:15px;font-weight:600;color:var(--br-text);">Ticket: {escape(sel_ticket.ticket_id)}</span>
+                            <span>{pill(sel_ticket.status.upper(), 'warning' if sel_ticket.status == 'open' else ('success' if sel_ticket.status == 'resolved' else 'accent'))}</span>
+                        </div>
+                        <div style="font-size:13px;color:var(--br-text-muted);margin-bottom:6px;">
+                            <b>Category:</b> {escape(sel_ticket.category)} &nbsp;|&nbsp; 
+                            <b>Book:</b> {escape(sel_ticket.book_title or 'N/A')} &nbsp;|&nbsp; 
+                            <b>Reporter:</b> {escape(sel_ticket.user_contact or 'Anonymous')}
+                        </div>
+                        {f'<div style="font-size:13px;color:var(--br-primary-light);margin-bottom:6px;"><b>Query Asked:</b> {escape(sel_ticket.query)}</div>' if sel_ticket.query else ''}
+                        <div style="font-size:13px;background:var(--br-surface-alt);border-radius:6px;padding:10px;margin-top:8px;color:var(--br-text);">
+                            {escape(sel_ticket.description)}
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+                b_act1, b_act2, b_act3, b_diag = st.columns([1, 1, 1, 1.5])
+                with b_act1:
+                    if st.button("Mark In Progress ⏳", key=f"btn_prog_{sel_ticket.ticket_id}", use_container_width=True):
+                        sel_ticket.status = "in_progress"
+                        storage.save_support_ticket(sel_ticket)
+                        st.success(f"Ticket {sel_ticket.ticket_id} marked as In Progress.")
+                        st.rerun()
+                with b_act2:
+                    if st.button("Mark Resolved ✅", key=f"btn_res_{sel_ticket.ticket_id}", use_container_width=True):
+                        sel_ticket.status = "resolved"
+                        storage.save_support_ticket(sel_ticket)
+                        st.success(f"Ticket {sel_ticket.ticket_id} resolved!")
+                        st.rerun()
+                with b_act3:
+                    if st.button("Re-open Ticket 🔄", key=f"btn_reopen_{sel_ticket.ticket_id}", use_container_width=True):
+                        sel_ticket.status = "open"
+                        storage.save_support_ticket(sel_ticket)
+                        st.info(f"Ticket {sel_ticket.ticket_id} re-opened.")
+                        st.rerun()
+                with b_diag:
+                    if sel_ticket.query:
+                        if st.button("🔍 Root-Cause Assistant", key=f"btn_diag_{sel_ticket.ticket_id}", use_container_width=True):
+                            st.session_state.admin_nav = "Root-Cause Assistant"
+                            st.rerun()
 

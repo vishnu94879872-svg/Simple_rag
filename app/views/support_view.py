@@ -45,21 +45,35 @@ def render_support_view(pipeline=None):
             unsafe_allow_html=True,
         )
 
+        prefill = st.session_state.pop("prefill_ticket", {}) or {}
+
+        available_books = ["General / All Books"]
+        if pipeline:
+            try:
+                books = pipeline.retrieval_engine.bm25_store.get_distinct_books()
+                available_books.extend(books)
+            except Exception:
+                pass
+
+        cat_idx = 0
+        if prefill.get("category") in CATEGORIES:
+            cat_idx = CATEGORIES.index(prefill["category"])
+
+        book_idx = 0
+        if prefill.get("book_title") and prefill["book_title"] in available_books:
+            book_idx = available_books.index(prefill["book_title"])
+
         with st.form("support_ticket_form", clear_on_submit=True):
-            category = st.selectbox("Problem Category", options=CATEGORIES)
-
-            available_books = ["General / All Books"]
-            if pipeline:
-                try:
-                    books = pipeline.retrieval_engine.bm25_store.get_distinct_books()
-                    available_books.extend(books)
-                except Exception:
-                    pass
-
-            book_title = st.selectbox("Related Book (if applicable)", options=available_books)
-            query = st.text_input("Question / Query Asked (optional)", placeholder="e.g. What is Constitutional AI?")
+            category = st.selectbox("Problem Category", options=CATEGORIES, index=cat_idx)
+            book_title = st.selectbox("Related Book (if applicable)", options=available_books, index=book_idx)
+            query = st.text_input(
+                "Question / Query Asked (optional)",
+                value=prefill.get("query", ""),
+                placeholder="e.g. What is Constitutional AI?",
+            )
             description = st.text_area(
                 "Problem Description *",
+                value=prefill.get("description", ""),
                 placeholder="Describe what went wrong (e.g., The tutor answered with information not found in the book, or page citation was wrong)...",
                 height=120,
             )

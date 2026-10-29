@@ -44,6 +44,7 @@ data/bm25/
 data/parent_store/
 data/images/
 data/books/*.pdf
+data/*.pdf
 data/observability/traces/
 data/observability/eval_runs/
 data/observability/experiments/

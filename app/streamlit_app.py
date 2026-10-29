@@ -107,6 +107,13 @@ with st.sidebar:
                 st.rerun()
 
         st.divider()
+        try:
+            open_tkt_count = sum(1 for t in storage.list_support_tickets(limit=50) if t.status == "open")
+            if open_tkt_count > 0:
+                from app.ui import pill
+                st.markdown(f'<div style="margin-bottom:10px;">{pill(f"⚠️ {open_tkt_count} Open User Reports", "warning")}</div>', unsafe_allow_html=True)
+        except Exception:
+            pass
         sidebar_nav_label("Observability Lab")
 
         selected_module = st.radio(
