@@ -114,25 +114,30 @@ class ChunkBuilder:
             section_text_pieces: List[str] = []
 
             # Process blocks in this section
-            # Consecutive text/list blocks can be batched for coherent text splitting
+            # Consecutive text/list blocks on the SAME page are batched for coherent text splitting.
+            # Flushing occurs whenever the physical page changes or non-text blocks arrive.
             current_text_batch: List[str] = []
-            current_batch_pages: List[int] = []
+            current_batch_page: Optional[int] = None
             current_batch_keywords: List[str] = []
 
             def flush_text_batch():
-                nonlocal chunk_counter, all_chunks, section_chunk_ids
-                if not current_text_batch:
+                nonlocal chunk_counter, all_chunks, section_chunk_ids, current_batch_page
+                if not current_text_batch or current_batch_page is None:
+                    current_text_batch.clear()
+                    current_batch_keywords.clear()
+                    current_batch_page = None
                     return
+
                 combined_text = "\n\n".join(current_text_batch).strip()
                 if not combined_text:
                     current_text_batch.clear()
-                    current_batch_pages.clear()
                     current_batch_keywords.clear()
+                    current_batch_page = None
                     return
 
-                # Split text inside section
+                # Split text strictly within this page
                 sub_chunks = self.text_splitter.split_text(combined_text)
-                batch_page = current_batch_pages[0] if current_batch_pages else page_start
+                batch_page = current_batch_page
 
                 for sub in sub_chunks:
                     clean_sub = sub.strip()
@@ -141,8 +146,11 @@ class ChunkBuilder:
                     chunk_counter += 1
                     cid = f"chunk_{chunk_counter:04d}_{generate_id('c', clean_sub)}"
 
-                    # Prefix with heading path
-                    prefixed_content = f"[{heading_path}]\n\n{clean_sub}"
+                    # Prefix with heading path if not already present
+                    if not clean_sub.startswith(f"[{heading_path}]"):
+                        prefixed_content = f"[{heading_path}]\n\n{clean_sub}"
+                    else:
+                        prefixed_content = clean_sub
                     
                     # Merge keywords
                     chunk_keywords = extract_keywords_from_text(
@@ -154,7 +162,7 @@ class ChunkBuilder:
                         book_title=self.book_title,
                         chapter=chapter,
                         section=section,
-                        page=batch_page,
+                        page=batch_page,  # Exact physical page citation
                         type=ContentType.TEXT.value,
                         chunk_id=cid,
                         parent_id=parent_id,
@@ -165,8 +173,8 @@ class ChunkBuilder:
                     section_chunk_ids.append(cid)
 
                 current_text_batch.clear()
-                current_batch_pages.clear()
                 current_batch_keywords.clear()
+                current_batch_page = None
 
             for block in sec_blocks:
                 if block.content_type == ContentType.TABLE:
@@ -242,8 +250,12 @@ class ChunkBuilder:
                 else:
                     # Regular text or list
                     if block.content and block.content.strip():
+                        # Flush if physical page changes to maintain strict page citation
+                        if current_batch_page is not None and block.page != current_batch_page:
+                            flush_text_batch()
+
+                        current_batch_page = block.page
                         current_text_batch.append(block.content)
-                        current_batch_pages.append(block.page)
                         current_batch_keywords.extend(block.keywords)
                         section_text_pieces.append(block.content)
 

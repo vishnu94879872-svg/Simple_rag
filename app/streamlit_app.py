@@ -1,6 +1,7 @@
-"""BookRAG Reliability Lab — Advanced RAG Engineering Platform.
+"""BookRAG Reliability Lab — Advanced RAG Engineering Platform & Book Tutor.
 
-Production-oriented RAG debugging, evaluation, and observability dashboard.
+Production-oriented RAG platform supporting both reader-facing Book Tutor
+and engineering observability lab with secure role-based access.
 """
 
 import sys
@@ -20,9 +21,13 @@ from generation.qa_chain import BookRAGPipeline
 from observability.storage import storage
 from app.ui import inject_theme, sidebar_brand, sidebar_nav_label, sidebar_status, storage_banner
 
-# View Modules
-from app.views.overview_view import render_overview
+# Reader Portal Views
 from app.views.chat_view import render_chat
+from app.views.user_upload_view import render_user_upload
+from app.views.support_view import render_support_view
+
+# Admin Observability Views
+from app.views.overview_view import render_overview
 from app.views.ingestion_view import render_ingestion_monitor
 from app.views.inspector_view import render_chunk_inspector
 from app.views.retrieval_view import render_retrieval_playground
@@ -34,8 +39,8 @@ from app.views.experiments_view import render_experiment_workbench
 from app.views.settings_view import render_settings
 
 st.set_page_config(
-    page_title="BookRAG Reliability Lab",
-    page_icon="🛡️",
+    page_title="Book Tutor · AI Knowledge Assistant",
+    page_icon="📚",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -51,9 +56,24 @@ def get_pipeline():
 
 pipeline = get_pipeline()
 
-NAV_ITEMS = {
-    "Overview": render_overview,
+# Session State for Role Separation
+if "portal" not in st.session_state:
+    st.session_state.portal = "user"
+if "admin_authenticated" not in st.session_state:
+    st.session_state.admin_authenticated = False
+if "user_nav" not in st.session_state:
+    st.session_state.user_nav = "Book Tutor"
+if "admin_nav" not in st.session_state:
+    st.session_state.admin_nav = "Overview"
+
+USER_NAV_ITEMS = {
     "Book Tutor": render_chat,
+    "Upload Book": render_user_upload,
+    "Support & Reports": render_support_view,
+}
+
+ADMIN_NAV_ITEMS = {
+    "Overview": render_overview,
     "Ingestion Monitor": render_ingestion_monitor,
     "Chunk Inspector": render_chunk_inspector,
     "Retrieval Playground": render_retrieval_playground,
@@ -65,37 +85,109 @@ NAV_ITEMS = {
     "Settings & Security": render_settings,
 }
 
-# --- Sidebar ---
+# --- Sidebar Layout ---
 with st.sidebar:
-    sidebar_brand()
-    st.divider()
-    sidebar_nav_label("Workspace")
+    if st.session_state.portal == "admin":
+        if not st.session_state.admin_authenticated:
+            st.session_state.portal = "user"
+            st.rerun()
 
-    selected_module = st.radio(
-        "Navigation",
-        options=list(NAV_ITEMS.keys()),
-        index=0,
-        label_visibility="collapsed",
-    )
+        sidebar_brand(title="BookRAG", subtitle="Admin Reliability Lab", mark="🛡️")
+        st.divider()
 
-    st.divider()
-    sidebar_nav_label("Runtime")
-    sidebar_status(
-        storage.get_status(),
-        vector_count=pipeline.retrieval_engine.vector_store.count(),
-        bm25_count=pipeline.retrieval_engine.bm25_store.count(),
-        model=settings.llm_model,
-    )
-    st.markdown(
-        '<div style="font-family:var(--br-mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--br-text-dim);margin-top:8px;">'
-        "Ingest → Retrieve → Rerank → Audit"
-        "</div>",
-        unsafe_allow_html=True,
-    )
+        col_portal, col_logout = st.columns([1, 1])
+        with col_portal:
+            if st.button("🎓 Reader Portal", use_container_width=True):
+                st.session_state.portal = "user"
+                st.rerun()
+        with col_logout:
+            if st.button("🚪 Log Out", use_container_width=True):
+                st.session_state.admin_authenticated = False
+                st.session_state.portal = "user"
+                st.rerun()
 
-# --- Main router ---
+        st.divider()
+        try:
+            open_tkt_count = sum(1 for t in storage.list_support_tickets(limit=50) if t.status == "open")
+            if open_tkt_count > 0:
+                from app.ui import pill
+                st.markdown(f'<div style="margin-bottom:10px;">{pill(f"⚠️ {open_tkt_count} Open User Reports", "warning")}</div>', unsafe_allow_html=True)
+        except Exception:
+            pass
+        sidebar_nav_label("Observability Lab")
+
+        selected_module = st.radio(
+            "Admin Navigation",
+            options=list(ADMIN_NAV_ITEMS.keys()),
+            key="admin_nav",
+            label_visibility="collapsed",
+        )
+
+        st.divider()
+        sidebar_nav_label("Runtime")
+        sidebar_status(
+            storage.get_status(),
+            vector_count=pipeline.retrieval_engine.vector_store.count(),
+            bm25_count=pipeline.retrieval_engine.bm25_store.count(),
+            model=settings.llm_model,
+        )
+        st.markdown(
+            '<div style="font-family:var(--br-mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--br-text-dim);margin-top:8px;">'
+            "Ingest → Retrieve → Rerank → Audit"
+            "</div>",
+            unsafe_allow_html=True,
+        )
+
+    else:
+        # User / Reader Portal
+        sidebar_brand(title="Book Tutor", subtitle="Interactive Reader", mark="📚")
+        st.divider()
+        sidebar_nav_label("Reader Workspace")
+
+        selected_module = st.radio(
+            "Reader Navigation",
+            options=list(USER_NAV_ITEMS.keys()),
+            key="user_nav",
+            label_visibility="collapsed",
+        )
+
+        st.divider()
+        # Admin Portal Entry
+        with st.expander("🔐 Admin Access", expanded=False):
+            if st.session_state.admin_authenticated:
+                st.caption("You are currently authenticated as Admin.")
+                if st.button("Open Admin Lab 🛡️", type="primary", use_container_width=True):
+                    st.session_state.portal = "admin"
+                    st.rerun()
+            else:
+                st.caption("Sign in to access engineering observability & telemetry.")
+                login_user = st.text_input("Username", key="login_username_input")
+                login_pass = st.text_input("Password", type="password", key="login_password_input")
+                if st.button("Unlock Admin Lab", type="primary", use_container_width=True):
+                    if (
+                        login_user.strip() == settings.admin_username
+                        and login_pass.strip() == settings.admin_password
+                    ):
+                        st.session_state.admin_authenticated = True
+                        st.session_state.portal = "admin"
+                        st.session_state.admin_nav = "Overview"
+                        st.rerun()
+                    else:
+                        st.error("Invalid admin credentials.")
+
+# --- Main Router ---
 storage_banner(storage.get_status())
-if selected_module in {"Overview", "Book Tutor", "Evaluation Lab", "Settings & Security"}:
-    NAV_ITEMS[selected_module](pipeline)
+
+if st.session_state.portal == "user":
+    if selected_module == "Book Tutor":
+        render_chat(pipeline)
+    elif selected_module == "Upload Book":
+        render_user_upload(pipeline)
+    elif selected_module == "Support & Reports":
+        render_support_view(pipeline)
 else:
-    NAV_ITEMS[selected_module]()
+    # Admin Portal Router
+    if selected_module in {"Overview", "Evaluation Lab", "Settings & Security"}:
+        ADMIN_NAV_ITEMS[selected_module](pipeline)
+    else:
+        ADMIN_NAV_ITEMS[selected_module]()

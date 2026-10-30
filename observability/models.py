@@ -272,3 +272,16 @@ class FailureInvestigationReport(BaseModel):
     regression_test_code: str = ""
     rerun_result: Optional[Dict[str, Any]] = None
 
+
+class SupportTicket(BaseModel):
+    """User-reported issue or feedback ticket."""
+    ticket_id: str
+    timestamp: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
+    category: str  # e.g. "Wrong Answer", "Missing Citation", "Upload/Chunking Error", "Slow Response", "Feedback"
+    book_title: Optional[str] = None
+    query: Optional[str] = None
+    description: str
+    user_contact: Optional[str] = None
+    status: str = "open"  # open, investigating, resolved
+    trace_id: Optional[str] = None
+

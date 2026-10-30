@@ -14,6 +14,7 @@ from observability.models import (
     EvalBenchmarkItem,
     ChunkExperimentResult,
     FailureInvestigationReport,
+    SupportTicket,
 )
 
 logger = logging.getLogger(__name__)
@@ -71,12 +72,13 @@ class ObservabilityStorage:
         self.benchmarks_dir = self.base_dir / "benchmarks"
         self.experiments_dir = self.base_dir / "experiments"
         self.investigations_dir = self.base_dir / "investigations"
+        self.tickets_dir = self.base_dir / "tickets"
 
         self._ensure_dirs()
         self._seed_default_benchmark_if_needed()
 
     def _ensure_dirs(self) -> None:
-        for d in [self.jobs_dir, self.traces_dir, self.evals_dir, self.benchmarks_dir, self.experiments_dir, self.investigations_dir]:
+        for d in [self.jobs_dir, self.traces_dir, self.evals_dir, self.benchmarks_dir, self.experiments_dir, self.investigations_dir, self.tickets_dir]:
             d.mkdir(parents=True, exist_ok=True)
 
     # --- Ingestion Jobs ---
@@ -240,6 +242,35 @@ class ObservabilityStorage:
             except Exception as e:
                 logger.error("Error reading investigation file %s: %s", p, e)
         return reports
+
+    # --- Support Tickets ---
+    def save_support_ticket(self, ticket: SupportTicket) -> None:
+        with self._lock:
+            path = self.tickets_dir / f"{ticket.ticket_id}.json"
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(ticket.model_dump_json(indent=2))
+
+    def get_support_ticket(self, ticket_id: str) -> Optional[SupportTicket]:
+        path = self.tickets_dir / f"{ticket_id}.json"
+        if not path.exists():
+            return None
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return SupportTicket.model_validate_json(f.read())
+        except Exception as e:
+            logger.error("Error reading support ticket file %s: %s", path, e)
+            return None
+
+    def list_support_tickets(self, limit: int = 50) -> List[SupportTicket]:
+        tickets = []
+        paths = sorted(self.tickets_dir.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+        for p in paths[:limit]:
+            try:
+                with open(p, "r", encoding="utf-8") as f:
+                    tickets.append(SupportTicket.model_validate_json(f.read()))
+            except Exception as e:
+                logger.error("Error reading ticket file %s: %s", p, e)
+        return tickets
 
     def get_status(self) -> Dict[str, Any]:
         """Describe the active backend without performing any network IO."""

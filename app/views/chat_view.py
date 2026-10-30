@@ -42,7 +42,15 @@ def _render_chunks(chunks) -> None:
 
 
 def render_chat(pipeline):
-    """Render the Chat interface."""
+    """Render the Chat interface with book-isolated context and 1-click report integration."""
+    distinct_books = pipeline.get_distinct_books()
+    book_options = ["All Books"] + distinct_books
+
+    focus_book = st.session_state.get("selected_book_focus")
+    default_idx = 0
+    if focus_book and focus_book in book_options:
+        default_idx = book_options.index(focus_book)
+
     col_hdr, col_btn = st.columns([4, 1], vertical_alignment="bottom")
     with col_hdr:
         page_header(
@@ -50,22 +58,17 @@ def render_chat(pipeline):
             "Book Tutor",
             "Ask natural-language questions about indexed books. Every answer is grounded with chapter and page citations, then audited for grounding.",
         )
-    with col_btn:
-        if st.button("Clear Conversation", type="secondary", width="stretch"):
-            st.session_state.messages = []
-            st.rerun()
-
-    distinct_books = pipeline.get_distinct_books()
-    book_options = ["All Books"] + distinct_books
 
     c_book, c_strat, c_topk, c_type, c_chap = st.columns([1.6, 1.2, 0.9, 0.9, 1.2])
     with c_book:
         selected_book = st.selectbox(
             "Book focus",
             options=book_options,
-            index=0,
+            index=default_idx,
             help="Select a specific book to focus questions, or 'All Books' for multi-book search.",
         )
+        st.session_state.selected_book_focus = selected_book
+
     with c_strat:
         strategy = st.selectbox(
             "Retrieval strategy",
@@ -80,8 +83,16 @@ def render_chat(pipeline):
     with c_chap:
         chapter_filter = st.text_input("Chapter filter (optional)", value="").strip()
 
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
+    # Per-book chat history storage
+    if "chat_history_by_book" not in st.session_state:
+        st.session_state.chat_history_by_book = {}
+
+    current_history = st.session_state.chat_history_by_book.setdefault(selected_book, [])
+
+    with col_btn:
+        if st.button("Clear Conversation", type="secondary", width="stretch"):
+            st.session_state.chat_history_by_book[selected_book] = []
+            st.rerun()
 
     pending_prompt = st.session_state.pop("pending_prompt", None)
 
@@ -90,17 +101,17 @@ def render_chat(pipeline):
     if selected_book == "Sample Quantum" or (selected_book == "All Books" and "Sample Quantum" in distinct_books):
         active_suggestions.append(("Qubit definition", "What is a qubit and how is it defined?"))
         active_suggestions.append(("Quantum Superposition", "Explain quantum superposition with an example."))
-    if selected_book == "Anthropic Ai Rag Test" or (selected_book == "All Books" and "Anthropic Ai Rag Test" in distinct_books):
+    if "Animal" in selected_book or (selected_book == "All Books" and any("Animal" in b for b in distinct_books)):
+        active_suggestions.append(("Animal Feeding", "How do different mammals feed and digest their food?"))
+        active_suggestions.append(("Bird Features", "What features distinguish birds from other vertebrates?"))
+    if "Anthropic" in selected_book or (selected_book == "All Books" and any("Anthropic" in b for b in distinct_books)):
         active_suggestions.append(("Constitutional AI", "What is Constitutional AI?"))
         active_suggestions.append(("RAG Pipeline Stages", "What are the main stages of a RAG pipeline?"))
-    if selected_book == "Animal Knowledge Base Rag Test 10 Pages" or (selected_book == "All Books" and "Animal Knowledge Base Rag Test 10 Pages" in distinct_books):
-        active_suggestions.append(("Animal Survival", "How do animals survive and adapt to their environments?"))
-        active_suggestions.append(("Metamorphosis", "Explain the process of animal metamorphosis."))
 
     if not active_suggestions:
         active_suggestions = SUGGESTED_QUESTIONS
 
-    if not st.session_state.messages and pending_prompt is None:
+    if not current_history and pending_prompt is None:
         st.markdown('<div class="br-nav-label">Suggested questions</div>', unsafe_allow_html=True)
         display_suggestions = active_suggestions[:4]
         suggestion_cols = st.columns(len(display_suggestions))
@@ -113,12 +124,13 @@ def render_chat(pipeline):
         if pending_prompt is None:
             focus_msg = f"currently tutoring on '{selected_book}'" if selected_book != "All Books" else "searching across all indexed books"
             empty_state(
-                "Grounded answers, cited to the page",
-                f"Pick a suggestion above or ask your own question ({focus_msg}). Every response carries an audit verdict and a trace ID.",
-                mark="◇",
+                "Grounded answers, cited to the exact page",
+                f"Pick a suggestion above or ask your own question ({focus_msg}). Every response carries an audit verdict and page-specific citations.",
+                mark="📖",
             )
 
-    for msg in st.session_state.messages:
+    # Render previous messages for the active book
+    for idx, msg in enumerate(current_history):
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
             if msg.get("sources"):
@@ -128,12 +140,25 @@ def render_chat(pipeline):
             if msg.get("chunks"):
                 _render_chunks(msg["chunks"])
 
-    typed_prompt = st.chat_input("Ask a question about the book...")
+            if msg["role"] == "assistant":
+                c_rpt, _ = st.columns([1.2, 3.8])
+                with c_rpt:
+                    if st.button("🚩 Report Issue with Answer", key=f"rpt_{idx}", type="secondary"):
+                        st.session_state.prefill_ticket = {
+                            "book_title": selected_book if selected_book != "All Books" else None,
+                            "query": msg.get("query", ""),
+                            "category": "Incorrect Answer / Hallucination",
+                            "description": f"Issue reported on answer:\n\nQuestion: '{msg.get('query', '')}'\nResponse: {msg.get('content', '')[:250]}...\n\nTrace ID: {msg.get('trace_id', 'N/A')}",
+                        }
+                        st.session_state.user_nav = "Support & Reports"
+                        st.rerun()
+
+    typed_prompt = st.chat_input(f"Ask a question about {selected_book}..." if selected_book != "All Books" else "Ask a question about indexed books...")
     prompt = typed_prompt or pending_prompt
     if not prompt:
         return
 
-    st.session_state.messages.append({"role": "user", "content": prompt})
+    current_history.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
@@ -145,7 +170,7 @@ def render_chat(pipeline):
     if chapter_filter:
         filters["chapter"] = chapter_filter
 
-    chat_history = [{"role": m["role"], "content": m["content"]} for m in st.session_state.messages[:-1]]
+    chat_history = [{"role": m["role"], "content": m["content"]} for m in current_history[:-1]]
 
     with st.chat_message("assistant"):
         with st.spinner("Consulting the book knowledge base..."):
@@ -167,9 +192,10 @@ def render_chat(pipeline):
         if response.retrieved_chunks:
             _render_chunks(response.retrieved_chunks)
 
-    st.session_state.messages.append(
+    current_history.append(
         {
             "role": "assistant",
+            "query": prompt,
             "content": response.answer,
             "sources": [{"chapter": s.chapter, "page": s.page} for s in response.sources],
             "chunks": response.retrieved_chunks,

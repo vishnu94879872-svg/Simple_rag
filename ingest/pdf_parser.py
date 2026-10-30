@@ -20,7 +20,21 @@ MONOSPACE_FONTS = {"courier", "consolas", "monaco", "menlo", "dejavusansmono", "
 
 # Bullet markers regex
 LIST_ITEM_REGEX = re.compile(r"^\s*(?:[\u2022\u25E6\u2043\u2219\*\-–—]|\d+[\.\)]|[a-zA-Z][\.\)])\s+", re.MULTILINE)
-CODE_PATTERNS = re.compile(r"\b(def |class |import |from |return |function |var |let |const |public |private |protected |void |#include |int |float )")
+
+# Strict code syntax regex patterns (requires real programming constructs, not isolated English words)
+STRICT_CODE_PATTERNS = [
+    r"^\s*(def|async\s+def)\s+\w+\s*\(",
+    r"^\s*function\s+\w+\s*\(",
+    r"^\s*(const|let|var)\s+\w+\s*=",
+    r"^\s*(import|from)\s+[a-zA-Z0-9_\.]+\s+(import|as)\b",
+    r"^\s*class\s+[A-Z]\w*(?:\([^)]*\))?:",
+    r"^\s*(public|private|protected)\s+(?:static\s+)?(?:void|int|string|boolean|float)\b",
+    r"^\s*#include\s+<[^>]+>",
+    r"^\s*for\s*\([^;]+;[^;]+;[^)]+\)",
+    r"^\s*(return|yield)\s+[a-zA-Z0-9_\(\{\[\"'].*[;]?$",
+    r"[{};]\s*$"
+]
+CODE_REGEX = re.compile("|".join(STRICT_CODE_PATTERNS))
 
 
 class HeadingTracker:
@@ -54,7 +68,7 @@ class HeadingTracker:
         if not lines:
             return
         first_line = lines[0]
-        # Check for Chapter N or Section N patterns
+        # 1. Check for Chapter N or CHAPTER N patterns
         chap_match = re.match(r"^(?:Chapter|CHAPTER)\s+([0-9IVXLCDM]+)[:\.\s]*(.*)", first_line, re.IGNORECASE)
         if chap_match:
             title = chap_match.group(2).strip() or f"Chapter {chap_match.group(1)}"
@@ -63,10 +77,30 @@ class HeadingTracker:
             self.subsection = ""
             return
 
+        # 2. Check for numbered major headers like "1. Amphibians", "2. Mammals", "1. Introduction"
+        num_major_match = re.match(r"^(\d+)\.\s+([A-Z][A-Za-z0-9\s\-_,]{2,60})$", first_line)
+        if num_major_match and len(lines) <= 2:
+            num = num_major_match.group(1)
+            title = num_major_match.group(2).strip()
+            self.chapter = f"Chapter {num}: {title}"
+            self.section = "Overview"
+            self.subsection = ""
+            return
+
+        # 3. Check for Section N or N.N (e.g. 1.2 Introduction)
         sec_match = re.match(r"^(?:Section|\d+\.\d+)\s*[:\.\s]*(.*)", first_line, re.IGNORECASE)
         if sec_match and len(first_line) < 80:
             self.section = first_line
             self.subsection = ""
+            return
+
+        # 4. Short stand-alone section titles (e.g. "Defining features", "Examples and habitats")
+        if len(lines) == 1 and 3 <= len(first_line) <= 45 and not first_line.endswith(('.', ':', '?', '!')):
+            if first_line[0].isupper() and not any(ch in first_line for ch in ';={}()|'):
+                if self.section != "Overview":
+                    self.subsection = first_line
+                else:
+                    self.section = first_line
 
     @property
     def heading_path(self) -> str:
@@ -76,6 +110,34 @@ class HeadingTracker:
         if self.subsection:
             parts.append(self.subsection)
         return " > ".join(parts)
+
+
+def is_header_or_footer(bbox: pymupdf.Rect, page_rect: pymupdf.Rect, text: str) -> bool:
+    """Identify running headers, footers, and standalone page numbers to avoid polluting chunk content."""
+    clean = text.strip()
+    if not clean:
+        return True
+
+    # Standalone page number e.g. "12", "Page 3", "4 of 10"
+    if re.match(r"^(?:page\s*)?\d+(?:\s*(?:of|/)\s*\d+)?$", clean, re.IGNORECASE):
+        if bbox.y1 <= 65 or bbox.y0 >= (page_rect.height - 65):
+            return True
+
+    # Extreme top strip (< 48pt) or extreme bottom strip (> page_height - 48pt)
+    in_top_strip = bbox.y1 <= 48
+    in_bottom_strip = bbox.y0 >= (page_rect.height - 48)
+    if in_top_strip or in_bottom_strip:
+        # Common running header / footer patterns
+        if re.search(r"(?:\|\s*page|\bpage\s+\d+\b|document id:|all rights reserved|confidential)", clean, re.IGNORECASE):
+            return True
+        if len(clean) < 90 and not clean.endswith(('.', '?', '!')):
+            return True
+
+    # Document ID lines anywhere on the page
+    if re.match(r"^document id:\s*[a-z0-9\-]+", clean, re.IGNORECASE):
+        return True
+
+    return False
 
 
 def detect_block_type(text: str, is_monospace: bool = False) -> ContentType:
@@ -88,18 +150,23 @@ def detect_block_type(text: str, is_monospace: bool = False) -> ContentType:
     if not text_stripped:
         return ContentType.TEXT
 
-    # Code detection: markdown fences or monospace or code syntax density
+    # 1. Code detection: markdown fences
     if text_stripped.startswith("```") or text_stripped.endswith("```"):
         return ContentType.CODE
+
+    # 2. Monospace font with genuine code syntax characters
     if is_monospace:
-        return ContentType.CODE
-    lines = [l for l in text_stripped.splitlines() if l.strip()]
-    if lines:
-        code_matches = sum(1 for line in lines if CODE_PATTERNS.search(line))
-        if len(lines) >= 3 and (code_matches / len(lines)) >= 0.5:
+        if any(sym in text_stripped for sym in ["{", "}", ";", "(", ")", "=", "->", "=>"]):
             return ContentType.CODE
 
-    # List detection
+    lines = [l for l in text_stripped.splitlines() if l.strip()]
+    if lines:
+        # Check strict programming code patterns
+        code_matches = sum(1 for line in lines if CODE_REGEX.search(line))
+        if len(lines) >= 2 and (code_matches / len(lines)) >= 0.5:
+            return ContentType.CODE
+
+    # 3. List detection
     bullet_lines = sum(1 for line in lines if LIST_ITEM_REGEX.match(line))
     if len(lines) > 1 and (bullet_lines / len(lines)) >= 0.6:
         return ContentType.LIST
@@ -257,9 +324,10 @@ class PDFParser:
         page_num: int,
         table_bboxes: List[pymupdf.Rect]
     ) -> List[ParsedBlock]:
-        """Extract text blocks with font/style inspection, avoiding table regions."""
+        """Extract text blocks with font/style inspection, avoiding table regions and running headers/footers."""
         blocks: List[ParsedBlock] = []
-        page_dict = page.get_text("dict")
+        # sort=True ensures blocks follow natural reading order (top-to-bottom, columns)
+        page_dict = page.get_text("dict", sort=True)
 
         for b in page_dict.get("blocks", []):
             # Check if block is an image or outside text
@@ -277,28 +345,54 @@ class PDFParser:
             is_monospace = False
 
             for line in b.get("lines", []):
-                line_spans = []
+                line_spans: List[str] = []
                 for span in line.get("spans", []):
                     span_text = span.get("text", "")
-                    if not span_text.strip():
+                    if not span_text:
                         continue
                     font = span.get("font", "").lower()
                     flags = span.get("flags", 0)
 
                     # Check bold
                     if (flags & 2 != 0) or ("bold" in font) or ("black" in font):
-                        bold_spans.append(span_text.strip())
+                        if span_text.strip():
+                            bold_spans.append(span_text.strip())
 
                     # Check monospace font
                     if any(m in font for m in MONOSPACE_FONTS):
                         is_monospace = True
 
-                    line_spans.append(span_text)
-                if line_spans:
-                    block_text_lines.append("".join(line_spans))
+                    # Word-spacing preservation:
+                    # If previous span does not end with space and current span does not start with space,
+                    # insert space so styled words do not concatenate together.
+                    if line_spans and not line_spans[-1].endswith(" ") and not span_text.startswith(" "):
+                        line_spans.append(" ")
 
-            full_block_text = "\n".join(block_text_lines).strip()
+                    line_spans.append(span_text)
+
+                if line_spans:
+                    line_str = "".join(line_spans).strip()
+                    if line_str:
+                        block_text_lines.append(line_str)
+
+            if not block_text_lines:
+                continue
+
+            # Join lines inside block:
+            # 1. De-hyphenate words broken across lines (e.g. "experi-\nment" -> "experiment")
+            raw_text = "\n".join(block_text_lines)
+            cleaned_text = re.sub(r"(\w+)-\n(\w+)", r"\1\2", raw_text)
+
+            # 2. If standard prose (not monospace or list), join soft-wrapped lines into coherent sentences
+            if not is_monospace and not any(LIST_ITEM_REGEX.match(l) for l in block_text_lines):
+                cleaned_text = re.sub(r"(?<!\n)\n(?!\n)", " ", cleaned_text)
+
+            full_block_text = cleaned_text.strip()
             if not full_block_text:
+                continue
+
+            # Filter out running headers, footers, and standalone page numbers
+            if is_header_or_footer(bbox, page.rect, full_block_text):
                 continue
 
             # Update heading hierarchy if block is a heading
